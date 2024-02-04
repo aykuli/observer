@@ -18,5 +18,4 @@ func main() {
 	mux.HandleFunc("/update/", handlers.UpdateRuntime(memstorage))
 
 	log.Fatal(http.ListenAndServe(`:8080`, mux))
-
 }
