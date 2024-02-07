@@ -7,7 +7,7 @@ import (
 )
 
 func TestGetStats(t *testing.T) {
-	memstorage := MemStorage{
+	memStorage := MemStorage{
 		GaugeMetrics:   map[string]float64{},
 		CounterMetrics: map[string]int64{},
 	}
@@ -22,13 +22,13 @@ func TestGetStats(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			GetStats(&memstorage)
+			GetStats(&memStorage)
 
-			assert.Contains(t, memstorage.CounterMetrics, "PollCount")
-			assert.Contains(t, memstorage.GaugeMetrics, "LastGC")
-			assert.Contains(t, memstorage.GaugeMetrics, "MSpanSys")
-			assert.Contains(t, memstorage.GaugeMetrics, "StackInuse")
-			assert.Contains(t, memstorage.GaugeMetrics, "StackInuse")
+			assert.Contains(t, memStorage.CounterMetrics, "PollCount")
+			assert.Contains(t, memStorage.GaugeMetrics, "LastGC")
+			assert.Contains(t, memStorage.GaugeMetrics, "MSpanSys")
+			assert.Contains(t, memStorage.GaugeMetrics, "StackInuse")
+			assert.Contains(t, memStorage.GaugeMetrics, "StackInuse")
 		})
 	}
 

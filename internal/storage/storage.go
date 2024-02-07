@@ -10,39 +10,39 @@ type MemStorage struct {
 	CounterMetrics
 }
 
-func GetStats(memstorage *MemStorage) {
+func GetStats(memStorage *MemStorage) {
 	memstats := runtime.MemStats{}
 	runtime.ReadMemStats(&memstats)
 
-	memstorage.CounterMetrics["PollCount"]++
+	memStorage.CounterMetrics["PollCount"]++
 
-	memstorage.GaugeMetrics["Alloc"] = float64(memstats.Alloc)
-	memstorage.GaugeMetrics["BuckHashSys"] = float64(memstats.BuckHashSys)
-	memstorage.GaugeMetrics["Frees"] = float64(memstats.Frees)
-	memstorage.GaugeMetrics["GCCPUFraction"] = memstats.GCCPUFraction
-	memstorage.GaugeMetrics["GCSys"] = float64(memstats.GCSys)
-	memstorage.GaugeMetrics["HeapAlloc"] = float64(memstats.HeapAlloc)
-	memstorage.GaugeMetrics["HeapIdle"] = float64(memstats.HeapIdle)
-	memstorage.GaugeMetrics["HeapInuse"] = float64(memstats.HeapInuse)
-	memstorage.GaugeMetrics["HeapObjects"] = float64(memstats.HeapObjects)
-	memstorage.GaugeMetrics["HeapReleased"] = float64(memstats.HeapReleased)
-	memstorage.GaugeMetrics["HeapSys"] = float64(memstats.HeapSys)
-	memstorage.GaugeMetrics["LastGC"] = float64(memstats.LastGC)
-	memstorage.GaugeMetrics["Lookups"] = float64(memstats.Lookups)
-	memstorage.GaugeMetrics["MCacheInuse"] = float64(memstats.MCacheInuse)
-	memstorage.GaugeMetrics["MCacheSys"] = float64(memstats.MCacheSys)
-	memstorage.GaugeMetrics["MSpanInuse"] = float64(memstats.MSpanInuse)
-	memstorage.GaugeMetrics["MSpanSys"] = float64(memstats.MSpanSys)
-	memstorage.GaugeMetrics["Mallocs"] = float64(memstats.Mallocs)
-	memstorage.GaugeMetrics["NextGC"] = float64(memstats.NextGC)
-	memstorage.GaugeMetrics["NumForcedGC"] = float64(memstats.NumForcedGC)
-	memstorage.GaugeMetrics["NumGC"] = float64(memstats.NumGC)
-	memstorage.GaugeMetrics["OtherSys"] = float64(memstats.OtherSys)
-	memstorage.GaugeMetrics["PauseTotalNs"] = float64(memstats.PauseTotalNs)
-	memstorage.GaugeMetrics["StackInuse"] = float64(memstats.StackInuse)
-	memstorage.GaugeMetrics["StackSys"] = float64(memstats.StackSys)
-	memstorage.GaugeMetrics["Sys"] = float64(memstats.Sys)
-	memstorage.GaugeMetrics["TotalAlloc"] = float64(memstats.TotalAlloc)
-	memstorage.GaugeMetrics["TotalAlloc"] = float64(memstats.TotalAlloc)
-	memstorage.GaugeMetrics["RandomValue"] = 0
+	memStorage.GaugeMetrics["Alloc"] = float64(memstats.Alloc)
+	memStorage.GaugeMetrics["BuckHashSys"] = float64(memstats.BuckHashSys)
+	memStorage.GaugeMetrics["Frees"] = float64(memstats.Frees)
+	memStorage.GaugeMetrics["GCCPUFraction"] = memstats.GCCPUFraction
+	memStorage.GaugeMetrics["GCSys"] = float64(memstats.GCSys)
+	memStorage.GaugeMetrics["HeapAlloc"] = float64(memstats.HeapAlloc)
+	memStorage.GaugeMetrics["HeapIdle"] = float64(memstats.HeapIdle)
+	memStorage.GaugeMetrics["HeapInuse"] = float64(memstats.HeapInuse)
+	memStorage.GaugeMetrics["HeapObjects"] = float64(memstats.HeapObjects)
+	memStorage.GaugeMetrics["HeapReleased"] = float64(memstats.HeapReleased)
+	memStorage.GaugeMetrics["HeapSys"] = float64(memstats.HeapSys)
+	memStorage.GaugeMetrics["LastGC"] = float64(memstats.LastGC)
+	memStorage.GaugeMetrics["Lookups"] = float64(memstats.Lookups)
+	memStorage.GaugeMetrics["MCacheInuse"] = float64(memstats.MCacheInuse)
+	memStorage.GaugeMetrics["MCacheSys"] = float64(memstats.MCacheSys)
+	memStorage.GaugeMetrics["MSpanInuse"] = float64(memstats.MSpanInuse)
+	memStorage.GaugeMetrics["MSpanSys"] = float64(memstats.MSpanSys)
+	memStorage.GaugeMetrics["Mallocs"] = float64(memstats.Mallocs)
+	memStorage.GaugeMetrics["NextGC"] = float64(memstats.NextGC)
+	memStorage.GaugeMetrics["NumForcedGC"] = float64(memstats.NumForcedGC)
+	memStorage.GaugeMetrics["NumGC"] = float64(memstats.NumGC)
+	memStorage.GaugeMetrics["OtherSys"] = float64(memstats.OtherSys)
+	memStorage.GaugeMetrics["PauseTotalNs"] = float64(memstats.PauseTotalNs)
+	memStorage.GaugeMetrics["StackInuse"] = float64(memstats.StackInuse)
+	memStorage.GaugeMetrics["StackSys"] = float64(memstats.StackSys)
+	memStorage.GaugeMetrics["Sys"] = float64(memstats.Sys)
+	memStorage.GaugeMetrics["TotalAlloc"] = float64(memstats.TotalAlloc)
+	memStorage.GaugeMetrics["TotalAlloc"] = float64(memstats.TotalAlloc)
+	memStorage.GaugeMetrics["RandomValue"] = 0
 }

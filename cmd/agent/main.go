@@ -1,8 +1,9 @@
 package main
 
 import (
-	"net/http"
 	"time"
+
+	"github.com/go-resty/resty/v2"
 
 	"github.com/aykuli/observer/cmd/agent/handlers"
 	"github.com/aykuli/observer/internal/storage"
@@ -15,9 +16,9 @@ const (
 
 func main() {
 	urlBase := "http://localhost:8080"
-	client := &http.Client{}
+	request := resty.New().R()
 
-	memstorage := storage.MemStorage{GaugeMetrics: map[string]float64{}, CounterMetrics: map[string]int64{}}
+	memStorage := storage.MemStorage{GaugeMetrics: map[string]float64{}, CounterMetrics: map[string]int64{}}
 	collectTicker := time.NewTicker(pollInterval * time.Second)
 	collectQuit := make(chan struct{})
 
@@ -30,9 +31,9 @@ func main() {
 		for {
 			select {
 			case <-collectTicker.C:
-				storage.GetStats(&memstorage)
+				storage.GetStats(&memStorage)
 			case <-sendTicker.C:
-				handlers.SendPost(client, urlBase, memstorage)
+				handlers.SendPost(request, urlBase, memStorage)
 			case <-sendQuit:
 				sendTicker.Stop()
 				return
