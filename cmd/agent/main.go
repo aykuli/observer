@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/go-resty/resty/v2"
@@ -28,7 +29,7 @@ func main() {
 			case <-collectTicker.C:
 				storage.GetStats(&memStorage)
 			case <-sendTicker.C:
-				handlers.SendPost(request, addr, memStorage)
+				handlers.SendPost(request, fmt.Sprintf("%s:%v", addr.Host, addr.Port), memStorage)
 			case <-sendQuit:
 				sendTicker.Stop()
 				return
