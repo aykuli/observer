@@ -16,10 +16,11 @@ import (
 // тдавать HTML-страницу со списком имён и
 // значений всех известных ему на текущий момент метрик.
 func main() {
+	parseFlags()
 	memStorage := storage.MemStorage{
 		GaugeMetrics:   map[string]float64{},
 		CounterMetrics: map[string]int64{},
 	}
 
-	log.Fatal(http.ListenAndServe(`localhost:8080`, routers.MetricsRouter(&memStorage)))
+	log.Fatal(http.ListenAndServe(addr, routers.MetricsRouter(&memStorage)))
 }

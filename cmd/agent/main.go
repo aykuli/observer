@@ -9,20 +9,15 @@ import (
 	"github.com/aykuli/observer/internal/storage"
 )
 
-const (
-	pollInterval   = 2
-	reportInterval = 10
-)
-
 func main() {
-	urlBase := "http://localhost:8080"
+	parseFlags()
 	request := resty.New().R()
 
 	memStorage := storage.MemStorage{GaugeMetrics: map[string]float64{}, CounterMetrics: map[string]int64{}}
-	collectTicker := time.NewTicker(pollInterval * time.Second)
+	collectTicker := time.NewTicker(pollInterval)
 	collectQuit := make(chan struct{})
 
-	sendTicker := time.NewTicker(reportInterval * time.Second)
+	sendTicker := time.NewTicker(reportInterval)
 	sendQuit := make(chan struct{})
 
 	i := 0
@@ -33,7 +28,7 @@ func main() {
 			case <-collectTicker.C:
 				storage.GetStats(&memStorage)
 			case <-sendTicker.C:
-				handlers.SendPost(request, urlBase, memStorage)
+				handlers.SendPost(request, addr, memStorage)
 			case <-sendQuit:
 				sendTicker.Stop()
 				return
