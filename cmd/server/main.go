@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 
@@ -22,5 +23,5 @@ func main() {
 		CounterMetrics: map[string]int64{},
 	}
 
-	log.Fatal(http.ListenAndServe(addr, routers.MetricsRouter(&memStorage)))
+	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%v", addr.Host, addr.Port), routers.MetricsRouter(&memStorage)))
 }
