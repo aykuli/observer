@@ -22,8 +22,9 @@ func (addr *ServerAddr) Set(s string) error {
 	hp := strings.Split(s, ":")
 
 	if len(hp) != 2 {
-		return errors.New("Need address in a form host:port")
+		return errors.New("need address in a form host:port")
 	}
+
 	port, err := strconv.Atoi(hp[1])
 	if err != nil {
 		return err
@@ -35,11 +36,11 @@ func (addr *ServerAddr) Set(s string) error {
 	return nil
 }
 
-var addr ServerAddr
+var addr = ServerAddr{"http://localhost", 8080}
 var reportInterval, pollInterval time.Duration
 
 func parseFlags() {
-	flag.Var(&addr, "a", "server address to run on (default localhost:8080)")
+	flag.Var(&addr, "a", "server address to run on")
 	flag.DurationVar(&reportInterval, "r", 10*time.Second, "report interval in second to post metric values on server")
 	flag.DurationVar(&pollInterval, "p", 2*time.Second, "metric values refreshing interval in second")
 
