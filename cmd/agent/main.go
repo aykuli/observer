@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/go-resty/resty/v2"
@@ -10,8 +9,13 @@ import (
 	"github.com/aykuli/observer/internal/storage"
 )
 
+var listenAddr string
+var reportInterval, pollInterval time.Duration
+
 func main() {
 	parseFlags()
+	parseEnvVars()
+
 	request := resty.New().R()
 
 	memStorage := storage.MemStorage{GaugeMetrics: map[string]float64{}, CounterMetrics: map[string]int64{}}
@@ -29,7 +33,7 @@ func main() {
 			case <-collectTicker.C:
 				storage.GetStats(&memStorage)
 			case <-sendTicker.C:
-				handlers.SendPost(request, fmt.Sprintf("%s:%v", addr.Host, addr.Port), memStorage)
+				handlers.SendPost(request, listenAddr, memStorage)
 			case <-sendQuit:
 				sendTicker.Stop()
 				return
