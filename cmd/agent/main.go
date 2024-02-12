@@ -15,10 +15,10 @@ func main() {
 	request := resty.New().R()
 
 	memStorage := storage.MemStorage{GaugeMetrics: map[string]float64{}, CounterMetrics: map[string]int64{}}
-	collectTicker := time.NewTicker(pollInterval)
+	collectTicker := time.NewTicker(time.Duration(pollInterval) * time.Second)
 	collectQuit := make(chan struct{})
 
-	sendTicker := time.NewTicker(reportInterval)
+	sendTicker := time.NewTicker(time.Duration(reportInterval) * time.Second)
 	sendQuit := make(chan struct{})
 
 	i := 0

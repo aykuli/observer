@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 )
 
 type ServerAddr struct {
@@ -37,12 +36,12 @@ func (addr *ServerAddr) Set(s string) error {
 }
 
 var addr = ServerAddr{"http://localhost", 8080}
-var reportInterval, pollInterval time.Duration
+var reportInterval, pollInterval int
 
 func parseFlags() {
 	flag.Var(&addr, "a", "server address to run on")
-	flag.DurationVar(&reportInterval, "r", 10*time.Second, "report interval in second to post metric values on server")
-	flag.DurationVar(&pollInterval, "p", 2*time.Second, "metric values refreshing interval in second")
+	flag.IntVar(&reportInterval, "r", 10, "report interval in second to post metric values on server")
+	flag.IntVar(&pollInterval, "p", 2, "metric values refreshing interval in second")
 
 	flag.Parse()
 }
