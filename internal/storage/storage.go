@@ -10,6 +10,11 @@ type MemStorage struct {
 	CounterMetrics
 }
 
+var MemStorageInit = MemStorage{
+	GaugeMetrics:   map[string]float64{},
+	CounterMetrics: map[string]int64{},
+}
+
 func GetStats(memStorage *MemStorage) {
 	memstats := runtime.MemStats{}
 	runtime.ReadMemStats(&memstats)

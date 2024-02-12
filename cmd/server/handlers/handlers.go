@@ -11,13 +11,17 @@ import (
 	"github.com/aykuli/observer/internal/storage"
 )
 
-func GetAllMetrics(memStorage *storage.MemStorage) http.HandlerFunc {
+type Metrics struct {
+	MemStorage *storage.MemStorage
+}
+
+func (m *Metrics) GetAllMetrics() http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		var metrics []string
-		for ck := range memStorage.CounterMetrics {
+		for ck := range m.MemStorage.CounterMetrics {
 			metrics = append(metrics, ck)
 		}
-		for gk := range memStorage.GaugeMetrics {
+		for gk := range m.MemStorage.GaugeMetrics {
 			metrics = append(metrics, gk)
 		}
 
@@ -29,7 +33,7 @@ func GetAllMetrics(memStorage *storage.MemStorage) http.HandlerFunc {
 	}
 }
 
-func GetMetric(memStorage *storage.MemStorage) http.HandlerFunc {
+func (m *Metrics) GetMetric() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		metricType := chi.URLParam(r, "metricType")
 		metricName := chi.URLParam(r, "metricName")
@@ -37,7 +41,7 @@ func GetMetric(memStorage *storage.MemStorage) http.HandlerFunc {
 		var resultValue string
 		switch metricType {
 		case "gauge":
-			value, ok := memStorage.GaugeMetrics[metricName]
+			value, ok := m.MemStorage.GaugeMetrics[metricName]
 			if ok {
 				resultValue = fmt.Sprintf("%v", value)
 			} else {
@@ -45,7 +49,7 @@ func GetMetric(memStorage *storage.MemStorage) http.HandlerFunc {
 			}
 
 		case "counter":
-			value, ok := memStorage.CounterMetrics[metricName]
+			value, ok := m.MemStorage.CounterMetrics[metricName]
 			if ok {
 				resultValue = fmt.Sprintf("%v", value)
 			} else {
@@ -72,7 +76,7 @@ func checkType(metricType string) bool {
 	return false
 }
 
-func UpdateRuntime(memStorage *storage.MemStorage) http.HandlerFunc {
+func (m *Metrics) Update() http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(rw, "Only POST method allowed", http.StatusMethodNotAllowed)
@@ -101,7 +105,7 @@ func UpdateRuntime(memStorage *storage.MemStorage) http.HandlerFunc {
 				return
 			}
 
-			memStorage.GaugeMetrics[metricName] = value
+			m.MemStorage.GaugeMetrics[metricName] = value
 		case "counter":
 			value, err := strconv.ParseInt(metricValue, 10, 64)
 			if err != nil {
@@ -109,7 +113,7 @@ func UpdateRuntime(memStorage *storage.MemStorage) http.HandlerFunc {
 				return
 			}
 
-			memStorage.CounterMetrics[metricName] += value
+			m.MemStorage.CounterMetrics[metricName] += value
 		default:
 			http.Error(rw, "No such metric type", http.StatusNotFound)
 			return

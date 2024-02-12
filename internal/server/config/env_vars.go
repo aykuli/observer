@@ -1,15 +1,10 @@
-package main
+package config
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/caarlos0/env/v6"
 )
-
-type Config struct {
-	Address string `env:"ADDRESS"`
-}
 
 func parseEnvVars() {
 	var envVars Config
@@ -23,6 +18,6 @@ func parseEnvVars() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		listenAddr = fmt.Sprintf("%s:%v", serverAddr.Host, serverAddr.Port)
+		ListenAddr = serverAddr.Host + ":" + serverAddr.Port
 	}
 }

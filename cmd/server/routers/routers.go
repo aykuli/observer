@@ -11,13 +11,14 @@ import (
 )
 
 func MetricsRouter(memStorage *storage.MemStorage) chi.Router {
-
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 
+	m := handlers.Metrics{memStorage}
+
 	r.Route("/", func(r chi.Router) {
-		r.Get("/", handlers.GetAllMetrics(memStorage))
-		r.Get("/value/{metricType}/{metricName}", handlers.GetMetric(memStorage))
+		r.Get("/", m.GetAllMetrics())
+		r.Get("/value/{metricType}/{metricName}", m.GetMetric())
 
 		r.Route("/update", func(r chi.Router) {
 			r.Route("/{metricType}", func(r chi.Router) {
@@ -32,7 +33,7 @@ func MetricsRouter(memStorage *storage.MemStorage) chi.Router {
 						rw.WriteHeader(http.StatusBadRequest)
 					})
 
-					r.Post("/{metricValue}", handlers.UpdateRuntime(memStorage))
+					r.Post("/{metricValue}", m.Update())
 				})
 			})
 

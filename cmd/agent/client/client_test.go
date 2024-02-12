@@ -1,4 +1,4 @@
-package handlers
+package client
 
 import (
 	"fmt"
@@ -77,7 +77,8 @@ func TestSendPost(t *testing.T) {
 			req.Method = http.MethodPost
 			req.URL = testServer.URL
 
-			SendPost(req, testServer.URL, tt.memStorage)
+			newClient := MerticsClient{ServerAddr: testServer.URL, MemStorage: tt.memStorage}
+			newClient.SendMetrics(req)
 
 			assert.Equal(t, len(tt.memStorage.GaugeMetrics)+len(tt.memStorage.CounterMetrics), reqCounter)
 		})
