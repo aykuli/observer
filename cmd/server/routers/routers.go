@@ -14,7 +14,7 @@ func MetricsRouter(memStorage *storage.MemStorage) chi.Router {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 
-	m := handlers.Metrics{memStorage}
+	m := handlers.Metrics{MemStorage: memStorage}
 
 	r.Route("/", func(r chi.Router) {
 		r.Get("/", m.GetAllMetrics())

@@ -20,7 +20,10 @@ func main() {
 	sendTicker := time.NewTicker(time.Duration(config.ReportInterval) * time.Second)
 	sendQuit := make(chan struct{})
 
-	newClient := NewClient(config.ListenAddr, memStorage)
+	newClient := client.MerticsClient{
+		ServerAddr: config.ListenAddr,
+		MemStorage: memStorage,
+	}
 
 	i := 0
 	for i < config.MaxTries {
