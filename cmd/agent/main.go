@@ -48,7 +48,3 @@ func main() {
 	defer collectTicker.Stop()
 	defer sendTicker.Stop()
 }
-
-func NewClient(serverAddr string, memStorage storage.MemStorage) *client.MerticsClient {
-	return &client.MerticsClient{serverAddr, memStorage}
-}
