@@ -8,27 +8,34 @@ import (
 	"github.com/aykuli/observer/internal/server/config"
 	"github.com/aykuli/observer/internal/server/logger"
 	"github.com/aykuli/observer/internal/server/storage"
+	"github.com/aykuli/observer/internal/server/storage/file"
+	"github.com/aykuli/observer/internal/server/storage/postgres"
+	"github.com/aykuli/observer/internal/server/storage/ram"
 )
 
 func main() {
-	if err := logger.Initialize("info"); err != nil {
+	if err := logger.Initialize("Info"); err != nil {
 		log.Print(err)
 	}
 
-	memStorage := storage.MemStorage{
-		GaugeMetrics:   storage.GaugeMetrics{},
-		CounterMetrics: storage.CounterMetrics{},
-	}
-
-	if err := memStorage.Load(); err != nil {
+	memStorage, err := initStorage()
+	if err != nil {
 		log.Print(err)
 	}
 
-	if config.Options.SaveMetrics && config.Options.StoreInterval > 0 {
-		go memStorage.SaveMetricsPeriodically()
-	}
-
-	if err := http.ListenAndServe(config.Options.Address, logger.WithLogging(routers.MetricsRouter(&memStorage))); err != nil {
+	if err = http.ListenAndServe(config.Options.Address, logger.WithLogging(routers.MetricsRouter(memStorage))); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func initStorage() (storage.Storage, error) {
+	if config.Options.DatabaseDsn != "" {
+		return postgres.NewStorage(config.Options.DatabaseDsn)
+	}
+
+	if config.Options.FileStoragePath != "" {
+		return file.NewStorage(config.Options.FileStoragePath, config.Options.Restore, config.Options.StoreInterval)
+	}
+
+	return ram.NewStorage()
 }

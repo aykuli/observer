@@ -9,8 +9,8 @@ type GaugeMetrics map[string]float64
 type CounterMetrics map[string]int64
 
 type MemStorage struct {
-	GaugeMetrics
-	CounterMetrics
+	GaugeMetrics   GaugeMetrics
+	CounterMetrics CounterMetrics
 }
 
 func NewMemStorage() MemStorage {
@@ -24,7 +24,7 @@ func GetStats(memStorage *MemStorage) {
 	memstats := runtime.MemStats{}
 	runtime.ReadMemStats(&memstats)
 
-	memStorage.CounterMetrics["PollCount"]++
+	memStorage.CounterMetrics["PollCount"] = 1
 
 	memStorage.GaugeMetrics["Alloc"] = float64(memstats.Alloc)
 	memStorage.GaugeMetrics["BuckHashSys"] = float64(memstats.BuckHashSys)

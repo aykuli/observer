@@ -1,6 +1,6 @@
 package models
 
-type Metrics struct {
+type Metric struct {
 	ID    string   `json:"id"`
 	MType string   `json:"type"`
 	Delta *int64   `json:"delta,omitempty"`

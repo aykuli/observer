@@ -50,5 +50,28 @@ func TestSendMetrics(t *testing.T) {
 
 			assert.Equal(t, len(tt.memStorage.GaugeMetrics)+len(tt.memStorage.CounterMetrics), reqCounter)
 		})
+
+	}
+
+	for _, tt := range tests {
+		reqCounter := 0
+		testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			reqCounter++
+		}))
+		defer testServer.Close()
+
+		t.Run(tt.name, func(t *testing.T) {
+			req := resty.New().R()
+			req.Method = http.MethodPost
+			req.URL = testServer.URL
+
+			newClient := MerticsClient{ServerAddr: testServer.URL, MemStorage: tt.memStorage}
+			newClient.SendBatchMetrics(req)
+			reqCount := 0
+			if len(tt.memStorage.CounterMetrics) > 0 || len(tt.memStorage.GaugeMetrics) > 0 {
+				reqCount = 1
+			}
+			assert.Equal(t, reqCount, reqCounter)
+		})
 	}
 }
