@@ -3,74 +3,296 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
-	"github.com/aykuli/observer/internal/server/config"
 	"github.com/aykuli/observer/internal/server/logger"
 	"github.com/aykuli/observer/internal/server/models"
 	"github.com/aykuli/observer/internal/server/storage"
 )
 
-type Metrics struct {
-	MemStorage *storage.MemStorage
+type APIV1 struct {
+	Storage storage.Storage
 }
 
-func (m *Metrics) GetAllMetrics() http.HandlerFunc {
-	return func(rw http.ResponseWriter, r *http.Request) {
-		var metrics []string
-		for ck := range m.MemStorage.CounterMetrics {
-			metrics = append(metrics, ck)
+// Ping godoc
+//
+//	@Produce		text/plain
+//	@Success		200		{string}	json	"OK"
+//	@Failure		422		{string}	error	"Unprocessable Entity"
+//	@Failure		500		{string}	error	"Internal Server Error"
+//	@Router			/ping [GET]
+func (v *APIV1) Ping() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		err := v.Storage.Ping(r.Context())
+		if err != nil {
+			logger.Log.Debug("ping storage error", zap.Error(err))
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
-		for gk := range m.MemStorage.GaugeMetrics {
-			metrics = append(metrics, gk)
+
+		w.WriteHeader(http.StatusOK)
+		_, err = w.Write([]byte("pong"))
+		if err != nil {
+			logger.Log.Debug("response body writing error", zap.Error(err))
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+
+		defer r.Body.Close()
+	}
+}
+
+// GetAllMetrics godoc
+//
+//	@Produce		text/plain
+//	@Success		200		{string}	json	"OK"
+//	@Failure		400		{string}	error	"Bad Request"
+//	@Failure		500		{string}	error	"Internal Server Error"
+//	@Router			/ [GET]
+func (v *APIV1) GetAllMetrics() http.HandlerFunc {
+	return func(rw http.ResponseWriter, r *http.Request) {
+		metricsPage, err := v.Storage.GetMetrics(r.Context())
+		if err != nil {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
 		}
 
 		rw.Header().Set("Content-Type", "text/html")
-		_, err := rw.Write([]byte(strings.Join(metrics, " ")))
+		rw.WriteHeader(http.StatusOK)
+		_, err = rw.Write([]byte(metricsPage))
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusBadRequest)
 		}
 	}
 }
 
-func (m *Metrics) GetMetric() http.HandlerFunc {
+// ReadMetric godoc
+//
+//	@Accept			application/json
+//	@Produce		application/json
+//	@Success		200		{string}	json	"OK"
+//	@Failure		400		{string}	error	"Bad Request"
+//	@Failure		422		{string}	error	"Unprocessable Entity"
+//	@Failure		500		{string}	error	"Internal Server Error"
+//	@Router			/value [POST]
+func (v *APIV1) ReadMetric() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		metricType := chi.URLParam(r, "metricType")
-		metricName := chi.URLParam(r, "metricName")
+		var askedMetric models.Metric
+		dec := json.NewDecoder(r.Body)
+		if err := dec.Decode(&askedMetric); err != nil {
+			logger.Log.Debug("cannot decode json request body", zap.Error(err))
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+
+		metric, err := v.Storage.ReadMetric(r.Context(), askedMetric.ID, askedMetric.MType)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		enc := json.NewEncoder(w)
+		if err := enc.Encode(&metric); err != nil {
+			logger.Log.Debug("cannot encode json request body", zap.Error(err))
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		}
+
+		defer r.Body.Close()
+	}
+}
+
+// GetMetric godoc
+//
+//	@Accept			application/json
+//	@Produce		application/json
+//	@Success		200		{string}	json	"OK"
+//	@Failure		400		{string}	error	"Bad Request"
+//	@Failure		404		{string}	error	"Not Found"
+//	@Router			/value/{metricType}/{metricName} [GET]
+func (v *APIV1) GetMetric() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		mType := chi.URLParam(r, "metricType")
+		mName := chi.URLParam(r, "metricName")
+		metric, err := v.Storage.ReadMetric(r.Context(), mName, mType)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
 
 		var resultValue string
-		switch metricType {
+		switch mType {
 		case "gauge":
-			value, ok := m.MemStorage.GaugeMetrics[metricName]
-			if ok {
-				resultValue = fmt.Sprintf("%v", value)
-			} else {
-				http.Error(w, "No such metric", http.StatusNotFound)
-			}
-
+			resultValue = fmt.Sprintf("%v", *metric.Value)
 		case "counter":
-			value, ok := m.MemStorage.CounterMetrics[metricName]
-			if ok {
-				resultValue = fmt.Sprintf("%v", value)
-			} else {
-				http.Error(w, "No such metric", http.StatusNotFound)
-			}
+			resultValue = fmt.Sprintf("%v", *metric.Delta)
 		default:
-			http.Error(w, "No such metric", http.StatusNotFound)
+			http.Error(w, "no such metric", http.StatusNotFound)
 			return
 		}
 
 		w.WriteHeader(http.StatusOK)
-		_, err := w.Write([]byte(resultValue))
+		_, err = w.Write([]byte(resultValue))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
+	}
+}
+
+// UpdateFromJSON godoc
+//
+//	@Accept			application/json
+//	@Produce		application/json
+//	@Success		200		{string}	json	"OK"
+//	@Failure		400		{string}	error	"Bad Request"
+//	@Failure		404		{string}	error	"Not Found"
+//	@Router			/update [POST]
+func (v *APIV1) UpdateFromJSON() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var metric models.Metric
+		dec := json.NewDecoder(r.Body)
+		err := dec.Decode(&metric)
+		if err != nil {
+			logger.Log.Debug("cannot decode json request body", zap.Error(err))
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		outMetric, err := v.Storage.SaveMetric(r.Context(), metric)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		enc := json.NewEncoder(w)
+		if err := enc.Encode(&outMetric); err != nil {
+			logger.Log.Debug("cannot encode json request body", zap.Error(err))
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		}
+	}
+}
+
+// Update godoc
+//
+//	@Accept			application/json
+//	@Produce		application/json
+//	@Success		200		{string}	json	"OK"
+//	@Failure		400		{string}	error	"Bad Request"
+//	@Failure		404		{string}	error	"Not Found"
+//	@Router			/update/{metricType}/{metricName}/{metricValue} [POST]
+func (v *APIV1) Update() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Only POST method allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		metricType := chi.URLParam(r, "metricType")
+		metricName := chi.URLParam(r, "metricName")
+		metricValue := chi.URLParam(r, "metricValue")
+
+		if !checkType(metricType) {
+			http.Error(w, "Metric type is wrong", http.StatusBadRequest)
+			return
+		}
+
+		if metricName == "" {
+			http.Error(w, "Metric name is empty", http.StatusNotFound)
+			return
+		}
+
+		var metric = models.Metric{ID: metricName, MType: metricType}
+
+		switch metricType {
+		case "gauge":
+			value, err := strconv.ParseFloat(metricValue, 64)
+			if err != nil {
+				http.Error(w, "Metric value is wrong", http.StatusBadRequest)
+				return
+			}
+			metric.Value = &value
+		case "counter":
+			delta, err := strconv.ParseInt(metricValue, 10, 64)
+			if err != nil {
+				http.Error(w, "Metric value is wrong", http.StatusBadRequest)
+				return
+			}
+			metric.Delta = &delta
+		default:
+			http.Error(w, "No such metric type", http.StatusNotFound)
+			return
+		}
+
+		outMetric, err := v.Storage.SaveMetric(r.Context(), metric)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		enc := json.NewEncoder(w)
+		if err := enc.Encode(&outMetric); err != nil {
+			logger.Log.Debug("cannot encode json request body", zap.Error(err))
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		}
+	}
+}
+
+// BatchUpdate godoc
+//
+//	@Accept			application/json
+//	@Produce		application/json
+//	@Success		200		{string}	json	"OK"
+//	@Failure		404		{string}	error	"Not Found"
+//	@Failure		404		{string}	error	"Internal Server Error"
+//	@Router			/updates [POST]
+func (v *APIV1) BatchUpdate() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var metrics []models.Metric
+		dec := json.NewDecoder(r.Body)
+		if err := dec.Decode(&metrics); err != nil {
+			logger.Log.Debug("cannot decode json request body", zap.Error(err))
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		outMetrics, err := v.Storage.SaveBatch(r.Context(), metrics)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Encoding", "gzip")
+		w.WriteHeader(http.StatusOK)
+
+		enc := json.NewEncoder(w)
+		if err := enc.Encode(&outMetrics); err != nil {
+			logger.Log.Debug("cannot encode json request body", zap.Error(err))
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		}
+	}
+}
+
+func (v *APIV1) NotFound() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusNotFound)
+	}
+}
+
+func (v *APIV1) BadRequest() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusBadRequest)
 	}
 }
 
@@ -80,170 +302,4 @@ func checkType(metricType string) bool {
 	}
 
 	return false
-}
-
-func (m *Metrics) Update() http.HandlerFunc {
-	return func(rw http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(rw, "Only POST method allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		metricType := chi.URLParam(r, "metricType")
-		metricName := chi.URLParam(r, "metricName")
-		metricValue := chi.URLParam(r, "metricValue")
-
-		if !checkType(metricType) {
-			http.Error(rw, "Metric type is wrong", http.StatusBadRequest)
-			return
-		}
-
-		if metricName == "" {
-			http.Error(rw, "Metric name is empty", http.StatusNotFound)
-			return
-		}
-
-		switch metricType {
-		case "gauge":
-			value, err := strconv.ParseFloat(metricValue, 64)
-			if err != nil {
-				http.Error(rw, "Metric value is wrong", http.StatusBadRequest)
-				return
-			}
-
-			m.MemStorage.GaugeMetrics[metricName] = value
-		case "counter":
-			value, err := strconv.ParseInt(metricValue, 10, 64)
-			if err != nil {
-				http.Error(rw, "Metric value is wrong", http.StatusBadRequest)
-				return
-			}
-
-			m.MemStorage.CounterMetrics[metricName] += value
-		default:
-			http.Error(rw, "No such metric type", http.StatusNotFound)
-			return
-
-		}
-
-		rw.Header().Set("Content-Type", "text/plain")
-		rw.WriteHeader(http.StatusOK)
-	}
-}
-
-func (m *Metrics) UpdateFromJSON() http.HandlerFunc {
-	return func(rw http.ResponseWriter, r *http.Request) {
-		var metric models.Metrics
-		dec := json.NewDecoder(r.Body)
-		if err := dec.Decode(&metric); err != nil {
-			logger.Log.Debug("cannot decode json request body", zap.Error(err))
-			rw.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		metricName := metric.ID
-		metricType := metric.MType
-
-		if !checkType(metricType) {
-			http.Error(rw, "Metric type is wrong", http.StatusBadRequest)
-			return
-		}
-
-		if metricName == "" {
-			http.Error(rw, "Metric name is empty", http.StatusNotFound)
-			return
-		}
-		var gaugeValue *float64
-		var countValue int64
-		switch metricType {
-		case "gauge":
-			m.MemStorage.GaugeMetrics[metricName] = *metric.Value
-			gaugeValue = metric.Value
-		case "counter":
-			m.MemStorage.CounterMetrics[metricName] += *metric.Delta
-			countValue = m.MemStorage.CounterMetrics[metricName]
-		default:
-			http.Error(rw, "No such metric type", http.StatusNotFound)
-			return
-		}
-
-		if config.Options.SaveMetrics && config.Options.StoreInterval == 0 {
-			if err := m.MemStorage.SaveMetricsToFile(); err != nil {
-				log.Print(err)
-			}
-		}
-
-		rw.Header().Set("Content-Type", "application/json")
-		rw.WriteHeader(http.StatusOK)
-		var respMetric models.Metrics
-		switch metricType {
-		case "gauge":
-			respMetric = models.Metrics{
-				ID:    metricName,
-				MType: metricType,
-				Value: gaugeValue,
-			}
-		case "counter":
-			respMetric = models.Metrics{
-				ID:    metricName,
-				MType: metricType,
-				Delta: &countValue,
-			}
-		}
-
-		resp, err := json.Marshal(respMetric)
-		if err != nil {
-			logger.Log.Debug("cannot encode json request body", zap.Error(err))
-			rw.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		_, err = rw.Write(resp)
-		if err != nil {
-			logger.Log.Debug("cannot encode json request body", zap.Error(err))
-			rw.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-	}
-}
-
-func (m *Metrics) ReadMetric() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-
-		var askedMetric models.Metrics
-		dec := json.NewDecoder(r.Body)
-		if err := dec.Decode(&askedMetric); err != nil {
-			logger.Log.Debug("cannot decode json request body", zap.Error(err))
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		metricName := askedMetric.ID
-		metricType := askedMetric.MType
-
-		var respMetric = models.Metrics{ID: askedMetric.ID, MType: askedMetric.MType}
-		switch metricType {
-		case "gauge":
-			value := m.MemStorage.GaugeMetrics[metricName]
-			respMetric.Value = &value
-		case "counter":
-			value := m.MemStorage.CounterMetrics[metricName]
-			respMetric.Delta = &value
-		default:
-			http.Error(w, "No such metric", http.StatusNotFound)
-			return
-		}
-
-		w.WriteHeader(http.StatusOK)
-		enc := json.NewEncoder(w)
-		if err := enc.Encode(respMetric); err != nil {
-			logger.Log.Debug("cannot encode json request body", zap.Error(err))
-			w.WriteHeader(http.StatusUnprocessableEntity)
-			return
-
-		}
-
-		defer r.Body.Close()
-	}
 }

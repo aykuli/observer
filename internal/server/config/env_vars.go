@@ -12,15 +12,6 @@ func parseEnvVars() {
 		log.Print(err)
 	}
 
-	if filename := Options.FileStoragePath; filename != "" {
-		writeFile, err := needWriteFile(filename)
-		if err != nil {
-			log.Print(err)
-		}
-
-		Options.SaveMetrics = writeFile
-	}
-
 	if Options.StoreInterval < 0 {
 		Options.StoreInterval = storeIntervalDefault
 	}
