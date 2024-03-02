@@ -1,13 +1,13 @@
 package storage
 
 import (
-	"bufio"
-	"encoding/json"
-	"os"
-	"strconv"
 	"time"
 
+	"go.uber.org/zap"
+
+	"github.com/aykuli/observer/internal/errors"
 	"github.com/aykuli/observer/internal/server/config"
+	"github.com/aykuli/observer/internal/server/logger"
 )
 
 type GaugeMetrics map[string]float64
@@ -19,65 +19,18 @@ type MemStorage struct {
 }
 
 func (m *MemStorage) Load() error {
-	// 1.Есть ли файл с конфигурацией сервера, где хранится путь к файлу с метриками, заданный в предыдущем запуске пользователем
-	// Если есть - открываем, если нет - создаем и открываем.
-	modeVal, err := strconv.ParseUint("0777", 8, 32)
+	consumer, err := NewConsumer(config.Options.FileStoragePath)
 	if err != nil {
-		return err
-	}
-	file, err := os.OpenFile(config.Options.Path, os.O_RDWR|os.O_CREATE, os.FileMode(modeVal))
-	if err != nil {
-		return err
-	}
-
-	defer file.Close()
-	defer m.saveUserPath(file)
-
-	reader := bufio.NewScanner(file)
-	reader.Scan()
-	metricsFilePath := reader.Bytes()
-
-	if len(metricsFilePath) == 0 {
 		return nil
 	}
 
-	err = m.loadMetricsFromFile(string(metricsFilePath))
+	mStore, err := consumer.ReadMetrics()
 	if err != nil {
-		return err
+		return errors.NewStorageError("Load", err)
 	}
 
-	return nil
-}
-
-func (m *MemStorage) saveUserPath(file *os.File) error {
-	err := file.Truncate(0)
-	if err != nil {
-		return err
-	}
-	_, err = file.Seek(0, 0)
-	if err != nil {
-		return err
-	}
-
-	_, err = file.Write([]byte(config.Options.FileStoragePath))
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (m *MemStorage) loadMetricsFromFile(filename string) error {
-	data, err := os.ReadFile(filename)
-	if err != nil {
-		return nil // if file corrupted or didnt exists - anyway it will be removed
-	}
-
-	err = json.Unmarshal(data, &m)
-	if err != nil {
-		return err
-	}
-
+	m.GaugeMetrics = mStore.GaugeMetrics
+	m.CounterMetrics = mStore.CounterMetrics
 	return nil
 }
 
@@ -87,7 +40,11 @@ func (m *MemStorage) SaveMetricsPeriodically() {
 	for {
 		select {
 		case <-collectTicker.C:
-			m.SaveMetricsToFile()
+			err := m.SaveMetricsToFile()
+			if err != nil {
+				logger.Log.Debug("failed metrics saving to file.", zap.Error(err))
+				collectTicker.Stop()
+			}
 		case <-collectQuit:
 			collectTicker.Stop()
 		}
@@ -95,31 +52,20 @@ func (m *MemStorage) SaveMetricsPeriodically() {
 }
 
 func (m *MemStorage) SaveMetricsToFile() error {
-	modeVal, err := strconv.ParseUint("0666", 8, 32)
+	producer, err := NewProducer(config.Options.FileStoragePath)
 	if err != nil {
-		return nil
+		return errors.NewStorageError("SaveMetricsToFile", err)
 	}
+	defer producer.Close()
 
-	file, err := os.OpenFile(config.Options.FileStoragePath, os.O_WRONLY|os.O_CREATE, os.FileMode(modeVal))
-	if err != nil {
-		return err
-	}
-
-	if err = file.Truncate(0); err != nil {
-		return err
-	}
-
-	data, err := json.MarshalIndent(m, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	if _, err = file.Write(data); err != nil {
-		return err
-	}
-
-	if err = file.Close(); err != nil {
-		return err
+	if len(m.GaugeMetrics) > 0 || len(m.CounterMetrics) > 0 {
+		err = producer.WriteMetrics(MemStorage{
+			GaugeMetrics:   m.GaugeMetrics,
+			CounterMetrics: m.CounterMetrics,
+		})
+		if err != nil {
+			return errors.NewStorageError("SaveMetricsToFile", err)
+		}
 	}
 
 	return nil

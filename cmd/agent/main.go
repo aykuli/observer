@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/go-resty/resty/v2"
@@ -10,8 +11,22 @@ import (
 	"github.com/aykuli/observer/internal/agent/storage"
 )
 
+const (
+	RetryCount              = 3
+	RetryMinWaitTimeSeconds = 1
+	RetryMaxWaitTimeSeconds = 5
+)
+
 func main() {
-	restyClient := resty.New()
+	restyClient := resty.New().
+		SetRetryCount(RetryCount).
+		SetRetryWaitTime(RetryMinWaitTimeSeconds).
+		SetRetryMaxWaitTime(RetryMaxWaitTimeSeconds).
+		AddRetryCondition(func(r *resty.Response, err error) bool {
+			isConnRefused := r.StatusCode() == 0
+			isServerDBErr := r.StatusCode() == http.StatusInternalServerError
+			return isConnRefused || isServerDBErr
+		})
 	restyClient.OnBeforeRequest(func(c *resty.Client, r *resty.Request) error {
 		r.SetHeader("Content-Encoding", "gzip")
 		r.SetHeader("Accept-Encoding", "gzip")
@@ -41,6 +56,7 @@ func main() {
 			storage.GetStats(&memStorage)
 		case <-sendTicker.C:
 			newClient.SendMetrics(request)
+			newClient.SendBatchMetrics(request)
 		case <-sendQuit:
 			sendTicker.Stop()
 			return

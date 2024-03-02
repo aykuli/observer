@@ -25,7 +25,7 @@ func TestGetMetricsRouter(t *testing.T) {
 		want
 	}{
 		{
-			name:       "GET ",
+			name:       "Get metric names",
 			method:     http.MethodGet,
 			requestURL: "/",
 			memStorage: storage.MemStorage{
@@ -85,6 +85,8 @@ func TestGetMetricsRouter(t *testing.T) {
 			defer ts.Close()
 
 			req, err := http.NewRequest(tt.method, ts.URL+tt.requestURL, nil)
+			req.Header.Set("Accept-Encoding", "")
+
 			require.NoError(t, err)
 
 			resp, err := ts.Client().Do(req)
