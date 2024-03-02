@@ -1,6 +1,9 @@
 package storage
 
-import "runtime"
+import (
+	"math/rand"
+	"runtime"
+)
 
 type GaugeMetrics map[string]float64
 type CounterMetrics map[string]int64
@@ -10,9 +13,11 @@ type MemStorage struct {
 	CounterMetrics
 }
 
-var MemStorageInit = MemStorage{
-	GaugeMetrics:   map[string]float64{},
-	CounterMetrics: map[string]int64{},
+func NewMemStorage() MemStorage {
+	return MemStorage{
+		GaugeMetrics:   map[string]float64{},
+		CounterMetrics: map[string]int64{},
+	}
 }
 
 func GetStats(memStorage *MemStorage) {
@@ -49,5 +54,9 @@ func GetStats(memStorage *MemStorage) {
 	memStorage.GaugeMetrics["Sys"] = float64(memstats.Sys)
 	memStorage.GaugeMetrics["TotalAlloc"] = float64(memstats.TotalAlloc)
 	memStorage.GaugeMetrics["TotalAlloc"] = float64(memstats.TotalAlloc)
-	memStorage.GaugeMetrics["RandomValue"] = 0
+	memStorage.GaugeMetrics["RandomValue"] = randFloat(0, 1000000)
+}
+
+func randFloat(min, max float64) float64 {
+	return min + rand.Float64()*(max-min)
 }

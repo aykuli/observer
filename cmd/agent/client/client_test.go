@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/aykuli/observer/internal/storage"
+	"github.com/aykuli/observer/internal/agent/storage"
 )
 
 func TestPost(t *testing.T) {
@@ -42,14 +42,13 @@ func TestPost(t *testing.T) {
 	}
 }
 
-func TestSendPost(t *testing.T) {
-
+func TestSendMetrics(t *testing.T) {
 	tests := []struct {
 		name       string
 		memStorage storage.MemStorage
 	}{
 		{
-			name: "gauge and count metrics sended",
+			name: "gauge and count metrics sent",
 			memStorage: storage.MemStorage{
 				GaugeMetrics: map[string]float64{
 					"GKey1": 1.25, "GKey2": 2.25, "GKey3": 3.25},

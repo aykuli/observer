@@ -1,34 +1,31 @@
 package config
 
-import (
-	"errors"
-	"strings"
-)
-
-var ListenAddr = "localhost:8080"
-
 type Config struct {
-	Address string `env:"ADDRESS"`
+	Path            string
+	Address         string `env:"ADDRESS"`
+	StoreInterval   int    `env:"STORE_INTERVAL"`
+	FileStoragePath string `env:"FILE_STORAGE_PATH"`
+	SaveMetrics     bool
+	Restore         bool `env:"RESTORE"`
 }
 
-type ServerAddr struct {
-	Host string
-	Port string
+const (
+	storeIntervalDefault = 300
+	hostDefault          = "localhost"
+	portDefault          = "8080"
+	fileStorageDefault   = "/tmp/metrics-db.json"
+)
+
+var Options = Config{
+	Path:            ".server.rc",
+	Address:         hostDefault + portDefault,
+	StoreInterval:   storeIntervalDefault,
+	FileStoragePath: fileStorageDefault,
+	SaveMetrics:     true,
+	Restore:         true,
 }
 
 func init() {
 	parseFlags()
 	parseEnvVars()
-}
-func parseServerAddr(s string) (ServerAddr, error) {
-	hp := strings.Split(s, ":")
-
-	if len(hp) != 2 {
-		return ServerAddr{}, errors.New("need address in a form host:port")
-	}
-
-	return ServerAddr{
-		Host: hp[0],
-		Port: hp[1],
-	}, nil
 }

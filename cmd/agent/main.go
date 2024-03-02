@@ -7,26 +7,33 @@ import (
 
 	"github.com/aykuli/observer/cmd/agent/client"
 	"github.com/aykuli/observer/internal/agent/config"
-	"github.com/aykuli/observer/internal/storage"
+	"github.com/aykuli/observer/internal/agent/storage"
 )
 
 func main() {
-	request := resty.New().R()
+	restyClient := resty.New()
+	restyClient.OnBeforeRequest(func(c *resty.Client, r *resty.Request) error {
+		r.SetHeader("Content-Encoding", "gzip")
+		r.SetHeader("Accept-Encoding", "gzip")
 
-	memStorage := storage.MemStorageInit
-	collectTicker := time.NewTicker(time.Duration(config.PollInterval) * time.Second)
+		return nil
+	})
+	request := restyClient.R()
+
+	memStorage := storage.NewMemStorage()
+	collectTicker := time.NewTicker(time.Duration(config.Options.PollInterval) * time.Second)
 	collectQuit := make(chan struct{})
 
-	sendTicker := time.NewTicker(time.Duration(config.ReportInterval) * time.Second)
+	sendTicker := time.NewTicker(time.Duration(config.Options.ReportInterval) * time.Second)
 	sendQuit := make(chan struct{})
 
 	newClient := client.MerticsClient{
-		ServerAddr: config.ListenAddr,
+		ServerAddr: config.Options.Address,
 		MemStorage: memStorage,
 	}
 
 	i := 0
-	for i < config.MaxTries {
+	for i < config.Options.MaxTries {
 		i++
 
 		for {

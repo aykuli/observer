@@ -1,21 +1,36 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 
 	"github.com/aykuli/observer/cmd/server/routers"
 	"github.com/aykuli/observer/internal/server/config"
 	"github.com/aykuli/observer/internal/server/logger"
-	"github.com/aykuli/observer/internal/storage"
+	"github.com/aykuli/observer/internal/server/storage"
 )
 
 func main() {
 	if err := logger.Initialize("info"); err != nil {
-		log.Fatal(err)
+		log.Print(err)
 	}
 
-	memStorage := storage.MemStorageInit
+	fmt.Printf("options: %+v\n\n", config.Options)
 
-	log.Fatal(http.ListenAndServe(config.ListenAddr, logger.WithLogging(routers.MetricsRouter(&memStorage))))
+	memStorage := storage.MemStorage{
+		GaugeMetrics:   storage.GaugeMetrics{},
+		CounterMetrics: storage.CounterMetrics{},
+	}
+	if err := memStorage.Load(); err != nil {
+		log.Print(err)
+	}
+
+	if config.Options.SaveMetrics && config.Options.StoreInterval > 0 {
+		go memStorage.SaveMetricsPeriodically()
+	}
+
+	if err := http.ListenAndServe(config.Options.Address, logger.WithLogging(routers.MetricsRouter(&memStorage))); err != nil {
+		log.Fatal(err)
+	}
 }

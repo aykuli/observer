@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/aykuli/observer/internal/storage"
+	"github.com/aykuli/observer/internal/server/storage"
 )
 
 func TestGetMetricsRouter(t *testing.T) {
