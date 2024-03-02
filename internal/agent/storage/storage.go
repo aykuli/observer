@@ -5,6 +5,8 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/shirou/gopsutil/v3/mem"
+
 	"github.com/aykuli/observer/internal/models"
 )
 
@@ -60,6 +62,16 @@ func (m *MemStorage) GarbageStats() {
 	m.gaugeMetrics["TotalAlloc"] = float64(memstats.TotalAlloc)
 	m.gaugeMetrics["TotalAlloc"] = float64(memstats.TotalAlloc)
 	m.gaugeMetrics["RandomValue"] = randFloat(0, 1000000)
+	m.mutex.Unlock()
+}
+
+func (m *MemStorage) GetSystemUtilInfo() {
+	v, _ := mem.VirtualMemory()
+
+	m.mutex.Lock()
+	m.gaugeMetrics["TotalMemory"] = float64(v.Total)
+	m.gaugeMetrics["FreeMemory"] = float64(v.Free)
+	m.gaugeMetrics["CPUutilization1"] = float64(v.UsedPercent)
 	m.mutex.Unlock()
 }
 
