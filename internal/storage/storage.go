@@ -49,5 +49,5 @@ func GetStats(memStorage *MemStorage) {
 	memStorage.GaugeMetrics["Sys"] = float64(memstats.Sys)
 	memStorage.GaugeMetrics["TotalAlloc"] = float64(memstats.TotalAlloc)
 	memStorage.GaugeMetrics["TotalAlloc"] = float64(memstats.TotalAlloc)
-	memStorage.GaugeMetrics["RandomValue"] = 0
+	memStorage.GaugeMetrics["RandomValue"] = 125
 }

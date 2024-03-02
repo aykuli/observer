@@ -17,16 +17,25 @@ func MetricsRouter(memStorage *storage.MemStorage) chi.Router {
 	m := handlers.Metrics{MemStorage: memStorage}
 
 	r.Route("/", func(r chi.Router) {
+		//Reading endpoints
 		r.Get("/", m.GetAllMetrics())
-		r.Get("/value/{metricType}/{metricName}", m.GetMetric())
+		r.Route("/value", func(r chi.Router) {
+			r.Post("/", m.ReadMetric())
 
+			r.Get("/{metricType}/{metricName}", m.GetMetric())
+		})
+
+		//Updating endpoints
 		r.Route("/update", func(r chi.Router) {
+			r.Post("/", m.UpdateFromJSON())
+
 			r.Route("/{metricType}", func(r chi.Router) {
 				r.Post("/", func(rw http.ResponseWriter, r *http.Request) {
 					rw.Header().Set("Content-Type", "text/plain")
 					rw.WriteHeader(http.StatusNotFound)
 
 				})
+
 				r.Route("/{metricName}", func(r chi.Router) {
 					r.Post("/", func(rw http.ResponseWriter, w *http.Request) {
 						rw.Header().Set("Content-Type", "text/plain")
