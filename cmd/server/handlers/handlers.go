@@ -1,13 +1,17 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 
+	"github.com/aykuli/observer/internal/server/logger"
+	"github.com/aykuli/observer/internal/server/models"
 	"github.com/aykuli/observer/internal/storage"
 )
 
@@ -122,5 +126,121 @@ func (m *Metrics) Update() http.HandlerFunc {
 
 		rw.Header().Set("Content-Type", "text/plain")
 		rw.WriteHeader(http.StatusOK)
+	}
+}
+
+func (m *Metrics) UpdateFromJSON() http.HandlerFunc {
+	return func(rw http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(rw, "Only POST method allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var metric models.Metrics
+		dec := json.NewDecoder(r.Body)
+		if err := dec.Decode(&metric); err != nil {
+			logger.Log.Debug("cannot decode json request body", zap.Error(err))
+			rw.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		metricName := metric.ID
+		metricType := metric.MType
+
+		if !checkType(metricType) {
+			http.Error(rw, "Metric type is wrong", http.StatusBadRequest)
+			return
+		}
+
+		if metricName == "" {
+			http.Error(rw, "Metric name is empty", http.StatusNotFound)
+			return
+		}
+		var gaugeValue *float64
+		var countValue int64
+		switch metricType {
+		case "gauge":
+			m.MemStorage.GaugeMetrics[metricName] = *metric.Value
+			gaugeValue = metric.Value
+		case "counter":
+			m.MemStorage.CounterMetrics[metricName] += *metric.Delta
+			countValue = m.MemStorage.CounterMetrics[metricName]
+		default:
+			http.Error(rw, "No such metric type", http.StatusNotFound)
+			return
+
+		}
+
+		rw.Header().Set("Content-Type", "application/json")
+		rw.WriteHeader(http.StatusOK)
+		var respMetric models.Metrics
+		switch metricType {
+		case "gauge":
+			respMetric = models.Metrics{
+				ID:    metricName,
+				MType: metricType,
+				Value: gaugeValue,
+			}
+		case "counter":
+			respMetric = models.Metrics{
+				ID:    metricName,
+				MType: metricType,
+				Delta: &countValue,
+			}
+		}
+
+		resp, err := json.Marshal(respMetric)
+		if err != nil {
+			logger.Log.Debug("cannot encode json request body", zap.Error(err))
+			rw.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		_, err = rw.Write(resp)
+		if err != nil {
+			logger.Log.Debug("cannot encode json request body", zap.Error(err))
+			rw.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+	}
+}
+
+func (m *Metrics) ReadMetric() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		var askedMetric models.Metrics
+		dec := json.NewDecoder(r.Body)
+		if err := dec.Decode(&askedMetric); err != nil {
+			logger.Log.Debug("cannot decode json request body", zap.Error(err))
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		metricName := askedMetric.ID
+		metricType := askedMetric.MType
+
+		var respMetric = models.Metrics{ID: askedMetric.ID, MType: askedMetric.MType}
+		switch metricType {
+		case "gauge":
+			value := m.MemStorage.GaugeMetrics[metricName]
+			respMetric.Value = &value
+		case "counter":
+			value := m.MemStorage.CounterMetrics[metricName]
+			respMetric.Delta = &value
+		default:
+			http.Error(w, "No such metric", http.StatusNotFound)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		enc := json.NewEncoder(w)
+		if err := enc.Encode(respMetric); err != nil {
+			logger.Log.Debug("cannot encode json request body", zap.Error(err))
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			return
+
+		}
+
+		defer r.Body.Close()
 	}
 }
