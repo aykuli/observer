@@ -29,7 +29,7 @@ func (m *Metrics) GetAllMetrics() http.HandlerFunc {
 			metrics = append(metrics, gk)
 		}
 
-		rw.Header().Set("Content-Type", "text/plain")
+		rw.Header().Set("Content-Type", "text/html")
 		_, err := rw.Write([]byte(strings.Join(metrics, " ")))
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusBadRequest)

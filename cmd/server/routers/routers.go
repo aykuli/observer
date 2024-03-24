@@ -1,6 +1,7 @@
 package routers
 
 import (
+	"compress/gzip"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -13,6 +14,10 @@ import (
 func MetricsRouter(memStorage *storage.MemStorage) chi.Router {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
+	r.Use(middleware.AllowContentEncoding("gzip"))
+	r.Use(middleware.SetHeader("Accept-Encoding", "gzip"))
+	r.Use(middleware.Compress(gzip.BestCompression, "application/json", "text/html", "html/text", "text/plain"))
+	r.Use(middleware.AllowContentType("application/json", "text/html", "html/text", "text/plain"))
 
 	m := handlers.Metrics{MemStorage: memStorage}
 
