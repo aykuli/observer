@@ -11,7 +11,14 @@ import (
 )
 
 func main() {
-	request := resty.New().R()
+	restyClient := resty.New()
+	restyClient.OnBeforeRequest(func(c *resty.Client, r *resty.Request) error {
+		r.SetHeader("Content-Encoding", "gzip")
+		r.SetHeader("Accept-Encoding", "gzip")
+
+		return nil
+	})
+	request := restyClient.R()
 
 	memStorage := storage.MemStorageInit
 	collectTicker := time.NewTicker(time.Duration(config.PollInterval) * time.Second)
