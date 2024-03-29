@@ -14,8 +14,8 @@ type GaugeMetrics map[string]float64
 type CounterMetrics map[string]int64
 
 type MemStorage struct {
-	GaugeMetrics   `json:"gauge_metrics"`
-	CounterMetrics `json:"counter_metrics"`
+	GaugeMetrics   GaugeMetrics   `json:"gauge_metrics"`
+	CounterMetrics CounterMetrics `json:"counter_metrics"`
 }
 
 func (m *MemStorage) Load() error {
