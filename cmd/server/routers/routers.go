@@ -40,7 +40,6 @@ func MetricsRouter(memStorage *storage.MemStorage) chi.Router {
 					rw.WriteHeader(http.StatusNotFound)
 
 				})
-
 				r.Route("/{metricName}", func(r chi.Router) {
 					r.Post("/", func(rw http.ResponseWriter, w *http.Request) {
 						rw.Header().Set("Content-Type", "text/plain")

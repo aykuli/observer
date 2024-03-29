@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 
@@ -15,8 +14,6 @@ func main() {
 	if err := logger.Initialize("info"); err != nil {
 		log.Print(err)
 	}
-
-	fmt.Printf("options: %+v\n\n", config.Options)
 
 	memStorage := storage.MemStorage{
 		GaugeMetrics:   storage.GaugeMetrics{},
