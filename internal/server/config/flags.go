@@ -8,7 +8,7 @@ import (
 
 func parseFlags() {
 	fs := flag.NewFlagSet("server", flag.ContinueOnError)
-	fs.StringVar(&Options.Address, "a", hostDefault+portDefault, "server address to run on")
+	fs.StringVar(&Options.Address, "a", hostDefault+":"+portDefault, "server address to run on")
 	fs.StringVar(&Options.FileStoragePath, "f", fileStorageDefault, "path to save metrics values")
 	fs.IntVar(&Options.StoreInterval, "i", 300, "metrics store interval in seconds")
 	fs.BoolVar(&Options.Restore, "r", true, "restore metrics from file")
