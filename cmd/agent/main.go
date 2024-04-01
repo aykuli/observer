@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/go-resty/resty/v2"
@@ -32,8 +31,6 @@ func main() {
 		ServerAddr: "http://" + config.Options.Address,
 		MemStorage: memStorage,
 	}
-
-	fmt.Printf("agent config: %+v\n\n", config.Options)
 
 	defer collectTicker.Stop()
 	defer sendTicker.Stop()
