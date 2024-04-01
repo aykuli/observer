@@ -133,10 +133,6 @@ func (m *Metrics) Update() http.HandlerFunc {
 
 func (m *Metrics) UpdateFromJSON() http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(rw, "Only POST method allowed", http.StatusMethodNotAllowed)
-			return
-		}
 		var metric models.Metrics
 		dec := json.NewDecoder(r.Body)
 		if err := dec.Decode(&metric); err != nil {
