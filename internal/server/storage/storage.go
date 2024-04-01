@@ -38,10 +38,6 @@ func (m *MemStorage) Load() error {
 	metricsFilePath := reader.Bytes()
 
 	if len(metricsFilePath) == 0 {
-		if err = m.saveUserPath(file); err != nil {
-			return err
-		}
-
 		return nil
 	}
 
@@ -74,7 +70,7 @@ func (m *MemStorage) saveUserPath(file *os.File) error {
 func (m *MemStorage) loadMetricsFromFile(filename string) error {
 	data, err := os.ReadFile(filename)
 	if err != nil {
-		return err
+		return nil // if file corrupted or didnt exists - anyway it will be removed
 	}
 
 	err = json.Unmarshal(data, &m)

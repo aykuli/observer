@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/go-resty/resty/v2"
@@ -28,9 +29,11 @@ func main() {
 	sendQuit := make(chan struct{})
 
 	newClient := client.MerticsClient{
-		ServerAddr: config.Options.Address,
+		ServerAddr: "http://" + config.Options.Address,
 		MemStorage: memStorage,
 	}
+
+	fmt.Printf("agent config: %+v\n\n", config.Options)
 
 	defer collectTicker.Stop()
 	defer sendTicker.Stop()

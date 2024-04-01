@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 
@@ -19,6 +20,8 @@ func main() {
 		GaugeMetrics:   storage.GaugeMetrics{},
 		CounterMetrics: storage.CounterMetrics{},
 	}
+	fmt.Printf("server config: %+v\n\n", config.Options)
+
 	if err := memStorage.Load(); err != nil {
 		log.Print(err)
 	}

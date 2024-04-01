@@ -12,15 +12,6 @@ func parseEnvVars() {
 		log.Print(err)
 	}
 
-	if serverAddrStr := Options.Address; serverAddrStr != "" {
-		serverAddr, err := parseServerAddr(serverAddrStr)
-		if err != nil {
-			log.Print(err)
-		}
-
-		Options.Address = serverAddr.String()
-	}
-
 	if filename := Options.FileStoragePath; filename != "" {
 		writeFile, err := needWriteFile(filename)
 		if err != nil {
