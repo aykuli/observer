@@ -18,7 +18,7 @@ const (
 
 var Options = Config{
 	Path:            ".server.rc",
-	Address:         hostDefault + portDefault,
+	Address:         hostDefault + ":" + portDefault,
 	StoreInterval:   storeIntervalDefault,
 	FileStoragePath: fileStorageDefault,
 	SaveMetrics:     true,
