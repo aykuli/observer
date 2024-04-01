@@ -14,7 +14,7 @@ const (
 )
 
 var Options = Config{
-	Address:        hostDefault + portDefault,
+	Address:        hostDefault + ":" + portDefault,
 	ReportInterval: reportIntervalDefault,
 	PollInterval:   pollIntervalDefault,
 }
