@@ -32,26 +32,21 @@ func main() {
 		MemStorage: memStorage,
 	}
 
-	i := 0
-	for i < config.Options.MaxTries {
-		i++
-
-		for {
-			select {
-			case <-collectTicker.C:
-				storage.GetStats(&memStorage)
-			case <-sendTicker.C:
-				newClient.SendMetrics(request)
-			case <-sendQuit:
-				sendTicker.Stop()
-				return
-			case <-collectQuit:
-				collectTicker.Stop()
-				return
-			}
-		}
-	}
-
 	defer collectTicker.Stop()
 	defer sendTicker.Stop()
+
+	for {
+		select {
+		case <-collectTicker.C:
+			storage.GetStats(&memStorage)
+		case <-sendTicker.C:
+			newClient.SendMetrics(request)
+		case <-sendQuit:
+			sendTicker.Stop()
+			return
+		case <-collectQuit:
+			collectTicker.Stop()
+			return
+		}
+	}
 }
