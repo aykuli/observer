@@ -6,11 +6,16 @@ import (
 
 	"github.com/aykuli/observer/cmd/server/routers"
 	"github.com/aykuli/observer/internal/server/config"
+	"github.com/aykuli/observer/internal/server/db/postgres"
 	"github.com/aykuli/observer/internal/server/logger"
 	"github.com/aykuli/observer/internal/server/storage"
 )
 
 func main() {
+	if _, err := postgres.CreateDBPool(); err != nil {
+		log.Fatal(err)
+	}
+
 	if err := logger.Initialize("info"); err != nil {
 		log.Print(err)
 	}

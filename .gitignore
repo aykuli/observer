@@ -25,3 +25,6 @@ vendor/
 .vscode
 *.json
 *.rc
+volumes/
+compose.yml
+
