@@ -140,7 +140,6 @@ func (m *Metric) GetMetric() http.HandlerFunc {
 				} else {
 					http.Error(w, "No such metric", http.StatusNotFound)
 				}
-
 			case "counter":
 				value, ok := m.MemStorage.CounterMetrics[metricName]
 				if ok {
@@ -150,7 +149,6 @@ func (m *Metric) GetMetric() http.HandlerFunc {
 				}
 			default:
 				http.Error(w, "No such metric", http.StatusNotFound)
-				return
 			}
 		} else {
 			metric, err := m.getMetricFromDB(r.Context(), metricName, metricType)
@@ -162,7 +160,6 @@ func (m *Metric) GetMetric() http.HandlerFunc {
 			} else {
 				resultValue = fmt.Sprintf("%v", metric.Delta)
 			}
-
 		}
 
 		w.WriteHeader(http.StatusOK)

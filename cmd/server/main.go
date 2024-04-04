@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 
@@ -15,10 +14,9 @@ import (
 func main() {
 	if config.Options.DatabaseDsn != "" {
 		if _, err := postgres.CreateDBPool(); err != nil {
-			log.Fatal(err)
+			log.Print(err)
 		}
 	}
-	fmt.Printf("options: %+v\n\n", config.Options)
 
 	if err := logger.Initialize("info"); err != nil {
 		log.Print(err)

@@ -35,7 +35,6 @@ func (r *MetricNamesRepository) InitTable() error {
 	}
 
 	return nil
-
 }
 
 func (r *MetricNamesRepository) GetID(ctx context.Context, name string) (int, error) {
