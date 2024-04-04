@@ -21,7 +21,7 @@ type MetricNamesRepository struct {
 }
 
 type MetricName struct {
-	Id   int
+	ID   int
 	Name string
 }
 
@@ -62,7 +62,7 @@ func (r *MetricNamesRepository) SelectAll(ctx context.Context) ([]MetricName, er
 	}
 	for rows.Next() {
 		var mName MetricName
-		err = rows.Scan(&mName.Id, &mName.Name)
+		err = rows.Scan(&mName.ID, &mName.Name)
 		if err != nil {
 			return nil, err
 		}
