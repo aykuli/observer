@@ -6,7 +6,8 @@ type Config struct {
 	StoreInterval   int    `env:"STORE_INTERVAL"`
 	FileStoragePath string `env:"FILE_STORAGE_PATH"`
 	SaveMetrics     bool
-	Restore         bool `env:"RESTORE"`
+	Restore         bool   `env:"RESTORE"`
+	DatabaseDsn     string `env:"DATABASE_DSN"`
 }
 
 const (
@@ -23,6 +24,7 @@ var Options = Config{
 	FileStoragePath: fileStorageDefault,
 	SaveMetrics:     true,
 	Restore:         true,
+	DatabaseDsn:     "",
 }
 
 func init() {

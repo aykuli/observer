@@ -24,6 +24,8 @@ func MetricsRouter(memStorage *storage.MemStorage) chi.Router {
 	r.Route("/", func(r chi.Router) {
 		//Reading endpoints
 		r.Get("/", m.GetAllMetrics())
+		r.Get("/ping", m.Ping())
+
 		r.Route("/value", func(r chi.Router) {
 			r.Post("/", m.ReadMetric())
 

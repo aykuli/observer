@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aykuli/observer/internal/server/config"
+	"github.com/aykuli/observer/internal/server/db/postgres"
 	"github.com/aykuli/observer/internal/server/logger"
 	"github.com/aykuli/observer/internal/server/models"
 	"github.com/aykuli/observer/internal/server/storage"
@@ -242,6 +243,27 @@ func (m *Metrics) ReadMetric() http.HandlerFunc {
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			return
 
+		}
+
+		defer r.Body.Close()
+	}
+}
+
+func (m *Metrics) Ping() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		err := postgres.Instance.Ping(r.Context())
+		if err != nil {
+			logger.Log.Debug("database connection invalid", zap.Error(err))
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		_, err = w.Write([]byte("pong"))
+		if err != nil {
+			logger.Log.Debug("something went wrong", zap.Error(err))
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			return
 		}
 
 		defer r.Body.Close()
