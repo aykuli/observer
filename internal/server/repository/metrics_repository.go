@@ -1,4 +1,4 @@
-package metrics_repository
+package repository
 
 import (
 	"context"
@@ -19,18 +19,18 @@ var (
 	)`
 	//todo create constraint to metric that metric_id is a foreign_key to metric_names
 	insertMetricQuery   = `INSERT INTO metrics (metric_id, type, value, delta) VALUES ($1, $2, $3, $4)`
-	findByMetricIdQuery = `SELECT * FROM metrics WHERE metric_id=$1 ORDER BY created_at DESC`
+	findByMetricIDQuery = `SELECT * FROM metrics WHERE metric_id=$1 ORDER BY created_at DESC`
 )
 
-type Repository struct {
+type MetricsRepository struct {
 	client *pgxpool.Conn
 }
 
-func NewRepository(client *pgxpool.Conn) *Repository {
-	return &Repository{client}
+func NewMetricsRepository(client *pgxpool.Conn) *MetricsRepository {
+	return &MetricsRepository{client}
 }
 
-func (r *Repository) InitTable() error {
+func (r *MetricsRepository) InitTable() error {
 	if _, err := r.client.Exec(context.Background(), createMetricsTableQuery); err != nil {
 		return err
 	}
@@ -38,7 +38,7 @@ func (r *Repository) InitTable() error {
 	return nil
 }
 
-func (r *Repository) Insert(ctx context.Context, metricID int, metric models.Metric) error {
+func (r *MetricsRepository) Insert(ctx context.Context, metricID int, metric models.Metric) error {
 	var value *float64
 	var delta *int64
 	if metric.Value != nil {
@@ -55,8 +55,8 @@ func (r *Repository) Insert(ctx context.Context, metricID int, metric models.Met
 	return nil
 }
 
-func (r *Repository) FindByMetricId(ctx context.Context, metricID int) (*models.Metric, error) {
-	result := r.client.QueryRow(ctx, findByMetricIdQuery, metricID)
+func (r *MetricsRepository) FindByMetricID(ctx context.Context, metricID int) (*models.Metric, error) {
+	result := r.client.QueryRow(ctx, findByMetricIDQuery, metricID)
 	var metric models.Metric0
 	if err := result.Scan(&metric); err != nil {
 		return nil, err

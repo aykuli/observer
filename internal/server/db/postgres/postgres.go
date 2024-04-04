@@ -8,8 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/aykuli/observer/internal/server/config"
-	"github.com/aykuli/observer/internal/server/repository/metric_names_repository"
-	"github.com/aykuli/observer/internal/server/repository/metrics_repository"
+	"github.com/aykuli/observer/internal/server/repository"
 )
 
 var (
@@ -34,12 +33,12 @@ func CreateDBPool() (*pgxpool.Pool, error) {
 	}
 	defer conn.Release()
 
-	metricNamesRepo := metric_names_repository.NewRepository(conn)
+	metricNamesRepo := repository.NewMetricNamesRepository(conn)
 	if err = metricNamesRepo.InitTable(); err != nil {
 		log.Print(err)
 	}
 
-	metricsRepo := metrics_repository.NewRepository(conn)
+	metricsRepo := repository.NewMetricsRepository(conn)
 	if err = metricsRepo.InitTable(); err != nil {
 		log.Print(err)
 	}

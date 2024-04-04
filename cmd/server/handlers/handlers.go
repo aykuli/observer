@@ -17,8 +17,7 @@ import (
 	"github.com/aykuli/observer/internal/server/db/postgres"
 	"github.com/aykuli/observer/internal/server/logger"
 	"github.com/aykuli/observer/internal/server/models"
-	"github.com/aykuli/observer/internal/server/repository/metric_names_repository"
-	"github.com/aykuli/observer/internal/server/repository/metrics_repository"
+	"github.com/aykuli/observer/internal/server/repository"
 	"github.com/aykuli/observer/internal/server/storage"
 )
 
@@ -184,13 +183,6 @@ func (m *Metric) UpdateFromJSON() http.HandlerFunc {
 			return
 		}
 
-		//metricName := metric.ID
-		//
-		//if metricName == "" {
-		//	http.Error(rw, "Metric name is empty", http.StatusNotFound)
-		//	return
-		//}
-
 		if config.Options.DatabaseDsn != "" {
 			err := m.saveIntoDB(r.Context(), metric)
 			if err != nil {
@@ -305,7 +297,7 @@ func (m *Metric) getMetricNamesFromDB(ctx context.Context) ([]string, error) {
 	defer conn.Release()
 
 	var metrics []string
-	metricsNamesRepo := metric_names_repository.NewRepository(conn)
+	metricsNamesRepo := repository.NewMetricNamesRepository(conn)
 	metricNames, err := metricsNamesRepo.SelectAll(ctx)
 	if err != nil {
 		return nil, err
@@ -324,13 +316,13 @@ func (m *Metric) saveIntoDB(ctx context.Context, metric models.Metric) error {
 	}
 	defer conn.Release()
 
-	metricNamesRepo := metric_names_repository.NewRepository(conn)
+	metricNamesRepo := repository.NewMetricNamesRepository(conn)
 	metricID, err := metricNamesRepo.GetID(ctx, metric.ID)
 	if err != nil {
 		return err
 	}
 
-	metricsRepo := metrics_repository.NewRepository(conn)
+	metricsRepo := repository.NewMetricsRepository(conn)
 	err = metricsRepo.Insert(ctx, metricID, metric)
 	if err != nil {
 		return err
@@ -365,14 +357,14 @@ func (m *Metric) getMetricFromDB(ctx context.Context, metricName string, metricT
 	}
 	defer conn.Release()
 
-	metricNamesRepo := metric_names_repository.NewRepository(conn)
+	metricNamesRepo := repository.NewMetricNamesRepository(conn)
 	metricID, err := metricNamesRepo.GetID(ctx, metricName)
 	if err != nil {
 		return nil, err
 	}
 
-	metricsRepo := metrics_repository.NewRepository(conn)
-	metric, err := metricsRepo.FindByMetricId(ctx, metricID)
+	metricsRepo := repository.NewMetricsRepository(conn)
+	metric, err := metricsRepo.FindByMetricID(ctx, metricID)
 	if err != nil {
 		return nil, err
 	}

@@ -1,4 +1,4 @@
-package metric_names_repository
+package repository
 
 import (
 	"context"
@@ -16,7 +16,7 @@ var (
 	selectAllQuery        = `SELECT * FROM metric_names`
 )
 
-type Repository struct {
+type MetricNamesRepository struct {
 	client *pgxpool.Conn
 }
 
@@ -25,11 +25,11 @@ type MetricName struct {
 	Name string
 }
 
-func NewRepository(client *pgxpool.Conn) *Repository {
-	return &Repository{client}
+func NewMetricNamesRepository(client *pgxpool.Conn) *MetricNamesRepository {
+	return &MetricNamesRepository{client}
 }
 
-func (r *Repository) InitTable() error {
+func (r *MetricNamesRepository) InitTable() error {
 	if _, err := r.client.Exec(context.Background(), createMetricNamesTableQuery); err != nil {
 		return err
 	}
@@ -38,7 +38,7 @@ func (r *Repository) InitTable() error {
 
 }
 
-func (r *Repository) GetID(ctx context.Context, name string) (int, error) {
+func (r *MetricNamesRepository) GetID(ctx context.Context, name string) (int, error) {
 	var metricID int
 	result := r.client.QueryRow(ctx, selectMetricNameQuery, name)
 	if err := result.Scan(&metricID); err != nil {
@@ -54,7 +54,7 @@ func (r *Repository) GetID(ctx context.Context, name string) (int, error) {
 	return metricID, nil
 }
 
-func (r *Repository) SelectAll(ctx context.Context) ([]MetricName, error) {
+func (r *MetricNamesRepository) SelectAll(ctx context.Context) ([]MetricName, error) {
 	var metricNames []MetricName
 	rows, err := r.client.Query(ctx, selectAllQuery)
 	if err != nil {
