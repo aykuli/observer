@@ -2,7 +2,6 @@ package routers
 
 import (
 	"compress/gzip"
-	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -19,7 +18,7 @@ func MetricsRouter(memStorage *storage.MemStorage) chi.Router {
 	r.Use(middleware.Compress(gzip.BestCompression, "application/json", "text/html", "html/text", "text/plain"))
 	r.Use(middleware.AllowContentType("application/json", "text/html", "html/text", "text/plain"))
 
-	m := handlers.Metrics{MemStorage: memStorage}
+	m := handlers.Metric{MemStorage: memStorage}
 
 	r.Route("/", func(r chi.Router) {
 		//Reading endpoints
@@ -28,7 +27,6 @@ func MetricsRouter(memStorage *storage.MemStorage) chi.Router {
 
 		r.Route("/value", func(r chi.Router) {
 			r.Post("/", m.ReadMetric())
-
 			r.Get("/{metricType}/{metricName}", m.GetMetric())
 		})
 
@@ -37,17 +35,10 @@ func MetricsRouter(memStorage *storage.MemStorage) chi.Router {
 			r.Post("/", m.UpdateFromJSON())
 
 			r.Route("/{metricType}", func(r chi.Router) {
-				r.Post("/", func(rw http.ResponseWriter, r *http.Request) {
-					rw.Header().Set("Content-Type", "text/plain")
-					rw.WriteHeader(http.StatusNotFound)
+				r.Post("/", m.NotFound())
 
-				})
 				r.Route("/{metricName}", func(r chi.Router) {
-					r.Post("/", func(rw http.ResponseWriter, w *http.Request) {
-						rw.Header().Set("Content-Type", "text/plain")
-						rw.WriteHeader(http.StatusBadRequest)
-					})
-
+					r.Post("/", m.BadRequest())
 					r.Post("/{metricValue}", m.Update())
 				})
 			})

@@ -12,8 +12,10 @@ import (
 )
 
 func main() {
-	if _, err := postgres.CreateDBPool(); err != nil {
-		log.Fatal(err)
+	if config.Options.DatabaseDsn != "" {
+		if _, err := postgres.CreateDBPool(); err != nil {
+			log.Print(err)
+		}
 	}
 
 	if err := logger.Initialize("info"); err != nil {
@@ -29,7 +31,8 @@ func main() {
 		log.Print(err)
 	}
 
-	if config.Options.SaveMetrics && config.Options.StoreInterval > 0 {
+	saveToFile := config.Options.DatabaseDsn == "" && config.Options.SaveMetrics && config.Options.StoreInterval > 0
+	if saveToFile {
 		go memStorage.SaveMetricsPeriodically()
 	}
 

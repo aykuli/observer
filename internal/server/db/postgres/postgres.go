@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/aykuli/observer/internal/server/config"
+	"github.com/aykuli/observer/internal/server/repository"
 )
 
 var (
@@ -24,6 +25,23 @@ func CreateDBPool() (*pgxpool.Pool, error) {
 
 		Instance = pool
 	})
+
+	conn, err := Instance.Acquire(context.Background())
+	if err != nil {
+		log.Print(err)
+
+	}
+	defer conn.Release()
+
+	metricNamesRepo := repository.NewMetricNamesRepository(conn)
+	if err = metricNamesRepo.InitTable(); err != nil {
+		log.Print(err)
+	}
+
+	metricsRepo := repository.NewMetricsRepository(conn)
+	if err = metricsRepo.InitTable(); err != nil {
+		log.Print(err)
+	}
 
 	return Instance, nil
 }

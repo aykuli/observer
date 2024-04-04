@@ -22,7 +22,7 @@ func (m *MerticsClient) SendMetrics(req *resty.Request) {
 	req.Method = http.MethodPost
 
 	for k, v := range m.MemStorage.GaugeMetrics {
-		body := models.Metrics{
+		body := models.Metric{
 			ID:    k,
 			MType: "gauge",
 			Delta: nil,
@@ -36,7 +36,7 @@ func (m *MerticsClient) SendMetrics(req *resty.Request) {
 	}
 
 	for k, v := range m.MemStorage.CounterMetrics {
-		body := models.Metrics{
+		body := models.Metric{
 			ID:    k,
 			MType: "counter",
 			Delta: &v,
