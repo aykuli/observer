@@ -44,6 +44,8 @@ func MetricsRouter(memStorage *storage.MemStorage) chi.Router {
 			})
 
 		})
+
+		r.Post("/updates/", m.BatchUpdate())
 	})
 
 	return r

@@ -11,8 +11,8 @@ var (
 		 id SERIAL PRIMARY KEY,
 		 name TEXT NOT NULL
 	)`
-	selectMetricNameQuery = `SELECT id FROM metric_names WHERE name=$1`
-	createMetricQuery     = `INSERT INTO metric_names (name) VALUES ($1) RETURNING id`
+	selectMetricNameQuery = `SELECT * FROM metric_names WHERE name=$1`
+	createMetricQuery     = `INSERT INTO metric_names (name) VALUES ($1) RETURNING id, name`
 	selectAllQuery        = `SELECT * FROM metric_names`
 )
 
@@ -37,20 +37,20 @@ func (r *MetricNamesRepository) InitTable() error {
 	return nil
 }
 
-func (r *MetricNamesRepository) GetID(ctx context.Context, name string) (int, error) {
-	var metricID int
+func (r *MetricNamesRepository) FindByName(ctx context.Context, name string) (MetricName, error) {
+	var metricName MetricName
 	result := r.client.QueryRow(ctx, selectMetricNameQuery, name)
-	if err := result.Scan(&metricID); err != nil {
+	if err := result.Scan(&metricName.ID, &metricName.Name); err != nil {
 		row := r.client.QueryRow(ctx, createMetricQuery, name)
-		err = row.Scan(&metricID)
+		err = row.Scan(&metricName.ID, &metricName.Name)
 		if err != nil {
-			return metricID, err
+			return MetricName{}, err
 		}
 
-		return metricID, nil
+		return metricName, nil
 	}
 
-	return metricID, nil
+	return metricName, nil
 }
 
 func (r *MetricNamesRepository) SelectAll(ctx context.Context) ([]MetricName, error) {
@@ -66,6 +66,20 @@ func (r *MetricNamesRepository) SelectAll(ctx context.Context) ([]MetricName, er
 			return nil, err
 		}
 		metricNames = append(metricNames, mName)
+	}
+
+	return metricNames, nil
+}
+
+func (r *MetricNamesRepository) SelectByNames(ctx context.Context, names []string) ([]MetricName, error) {
+	var metricNames []MetricName
+	for _, name := range names {
+		mtName, err := r.FindByName(ctx, name)
+		if err != nil {
+			return nil, err
+		}
+
+		metricNames = append(metricNames, mtName)
 	}
 
 	return metricNames, nil
