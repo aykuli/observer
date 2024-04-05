@@ -41,6 +41,7 @@ func main() {
 			storage.GetStats(&memStorage)
 		case <-sendTicker.C:
 			newClient.SendMetrics(request)
+			newClient.SendBatchMetrics(request)
 		case <-sendQuit:
 			sendTicker.Stop()
 			return

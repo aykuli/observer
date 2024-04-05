@@ -104,9 +104,9 @@ func (m *Metric) ReadMetric() http.HandlerFunc {
 				return
 			}
 		} else {
-			metric, err := m.getMetricFromDB(r.Context(), metricName, metricType)
+			metric, err := m.getMetricFromDB(r.Context(), metricName)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
+				http.Error(w, err.Error(), http.StatusNotFound)
 			}
 
 			respMetric = metric
@@ -151,7 +151,7 @@ func (m *Metric) GetMetric() http.HandlerFunc {
 				http.Error(w, "No such metric", http.StatusNotFound)
 			}
 		} else {
-			metric, err := m.getMetricFromDB(r.Context(), metricName, metricType)
+			metric, err := m.getMetricFromDB(r.Context(), metricName)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 			}
@@ -181,7 +181,7 @@ func (m *Metric) UpdateFromJSON() http.HandlerFunc {
 		}
 
 		if config.Options.DatabaseDsn != "" {
-			err := m.saveIntoDB(r.Context(), metric)
+			err := m.insertIntoDB(r.Context(), metric)
 			if err != nil {
 				logger.Log.Debug("cannot save to database", zap.Error(err))
 				rw.WriteHeader(http.StatusInternalServerError)
@@ -263,6 +263,50 @@ func (m *Metric) Update() http.HandlerFunc {
 	}
 }
 
+func (m *Metric) BatchUpdate() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var metrics []models.Metric
+		dec := json.NewDecoder(r.Body)
+		if err := dec.Decode(&metrics); err != nil {
+			logger.Log.Debug("cannot decode json request body", zap.Error(err))
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		if config.Options.DatabaseDsn != "" {
+			err := m.insertManyIntoDB(r.Context(), metrics)
+			if err != nil {
+				logger.Log.Debug("cannot save to database", zap.Error(err))
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+		} else {
+			err := m.saveManyOnLocalhost(metrics)
+			if err != nil {
+				logger.Log.Debug("localhost save err", zap.Error(err))
+				log.Print(err)
+			}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+
+		resp, err := json.Marshal(metrics)
+		if err != nil {
+			logger.Log.Debug("cannot encode json request body", zap.Error(err))
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		_, err = w.Write(resp)
+		if err != nil {
+			logger.Log.Debug("cannot encode json request body", zap.Error(err))
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+	}
+}
+
 func (m *Metric) NotFound() http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		rw.Header().Set("Content-Type", "text/plain")
@@ -306,7 +350,7 @@ func (m *Metric) getMetricNamesFromDB(ctx context.Context) ([]string, error) {
 	return metrics, nil
 }
 
-func (m *Metric) saveIntoDB(ctx context.Context, metric models.Metric) error {
+func (m *Metric) insertIntoDB(ctx context.Context, metric models.Metric) error {
 	conn, err := postgres.Instance.Acquire(ctx)
 	if err != nil {
 		return err
@@ -314,13 +358,45 @@ func (m *Metric) saveIntoDB(ctx context.Context, metric models.Metric) error {
 	defer conn.Release()
 
 	metricNamesRepo := repository.NewMetricNamesRepository(conn)
-	metricID, err := metricNamesRepo.GetID(ctx, metric.ID)
+	metricName, err := metricNamesRepo.FindByName(ctx, metric.ID)
 	if err != nil {
 		return err
 	}
 
 	metricsRepo := repository.NewMetricsRepository(conn)
-	err = metricsRepo.Insert(ctx, metricID, metric)
+	err = metricsRepo.Insert(ctx, metricName.ID, metric)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *Metric) insertManyIntoDB(ctx context.Context, metrics []models.Metric) error {
+	conn, err := postgres.Instance.Acquire(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Release()
+
+	var names []string
+	for _, mt := range metrics {
+		names = append(names, mt.ID)
+	}
+
+	metricNamesRepo := repository.NewMetricNamesRepository(conn)
+	metricNames, err := metricNamesRepo.SelectByNames(ctx, names)
+	if err != nil {
+		return err
+	}
+
+	metricNamesMap := make(map[string]int)
+	for _, mn := range metricNames {
+		metricNamesMap[mn.Name] = mn.ID
+	}
+
+	metricsRepo := repository.NewMetricsRepository(conn)
+	err = metricsRepo.InsertBatch(ctx, metrics, metricNamesMap)
 	if err != nil {
 		return err
 	}
@@ -347,7 +423,17 @@ func (m *Metric) saveOnLocalhost(metric models.Metric) error {
 	return nil
 }
 
-func (m *Metric) getMetricFromDB(ctx context.Context, metricName string, metricType string) (*models.Metric, error) {
+func (m *Metric) saveManyOnLocalhost(metrics []models.Metric) error {
+	for _, mt := range metrics {
+		if err := m.saveOnLocalhost(mt); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *Metric) getMetricFromDB(ctx context.Context, metricName string) (*models.Metric, error) {
 	conn, err := postgres.Instance.Acquire(ctx)
 	if err != nil {
 		return nil, err
@@ -355,13 +441,13 @@ func (m *Metric) getMetricFromDB(ctx context.Context, metricName string, metricT
 	defer conn.Release()
 
 	metricNamesRepo := repository.NewMetricNamesRepository(conn)
-	metricID, err := metricNamesRepo.GetID(ctx, metricName)
+	metricNameDB, err := metricNamesRepo.FindByName(ctx, metricName)
 	if err != nil {
 		return nil, err
 	}
 
 	metricsRepo := repository.NewMetricsRepository(conn)
-	metric, err := metricsRepo.FindByMetricID(ctx, metricID)
+	metric, err := metricsRepo.FindByMetricName(ctx, metricNameDB)
 	if err != nil {
 		return nil, err
 	}

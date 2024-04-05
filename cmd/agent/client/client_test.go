@@ -1,46 +1,15 @@
 package client
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/aykuli/observer/internal/agent/storage"
 )
-
-func TestPost(t *testing.T) {
-	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	}))
-	defer testServer.Close()
-
-	tests := []struct {
-		name    string
-		options Options
-	}{
-		{
-			name:    "gauge metric url",
-			options: Options{testServer.URL, "gauge", "metric0", fmt.Sprintf("%v", 56.6)},
-		},
-		{
-			name:    "count metric url",
-			options: Options{testServer.URL, "counter", "metric1", fmt.Sprintf("%v", 5897)},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			req := resty.New().R()
-			req.URL = testServer.URL
-			err := post(req, tt.options)
-			require.NoError(t, err)
-		})
-	}
-}
 
 func TestSendMetrics(t *testing.T) {
 	tests := []struct {
@@ -80,6 +49,29 @@ func TestSendMetrics(t *testing.T) {
 			newClient.SendMetrics(req)
 
 			assert.Equal(t, len(tt.memStorage.GaugeMetrics)+len(tt.memStorage.CounterMetrics), reqCounter)
+		})
+
+	}
+
+	for _, tt := range tests {
+		reqCounter := 0
+		testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			reqCounter++
+		}))
+		defer testServer.Close()
+
+		t.Run(tt.name, func(t *testing.T) {
+			req := resty.New().R()
+			req.Method = http.MethodPost
+			req.URL = testServer.URL
+
+			newClient := MerticsClient{ServerAddr: testServer.URL, MemStorage: tt.memStorage}
+			newClient.SendBatchMetrics(req)
+			reqCount := 0
+			if len(tt.memStorage.CounterMetrics) > 0 || len(tt.memStorage.GaugeMetrics) > 0 {
+				reqCount = 1
+			}
+			assert.Equal(t, reqCount, reqCounter)
 		})
 	}
 }
