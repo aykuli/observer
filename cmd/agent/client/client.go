@@ -49,18 +49,3 @@ func (m *MerticsClient) SendMetrics(req *resty.Request) {
 		}
 	}
 }
-
-type Options struct {
-	serverAddr, mType, mName, mValue string
-}
-
-func post(req *resty.Request, options Options) error {
-	_, err := req.SetPathParams(map[string]string{
-		"mType": options.mType,
-		"mName": options.mName,
-		"mValue": fmt.Sprintf("%v", options.
-			mValue),
-	}).Post(options.serverAddr + "/update/{mType}/{mName}/{mValue}")
-
-	return err
-}
