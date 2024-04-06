@@ -7,17 +7,21 @@ import (
 )
 
 func parseEnvVars() {
-	var envVars Config
-	err := env.Parse(&envVars)
+	err := env.Parse(&Options)
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
 	}
 
-	if serverAddrStr := envVars.Address; serverAddrStr != "" {
-		serverAddr, err := parseServerAddr(serverAddrStr)
+	if filename := Options.FileStoragePath; filename != "" {
+		writeFile, err := needWriteFile(filename)
 		if err != nil {
-			log.Fatal(err)
+			log.Print(err)
 		}
-		ListenAddr = serverAddr.Host + ":" + serverAddr.Port
+
+		Options.SaveMetrics = writeFile
+	}
+
+	if Options.StoreInterval < 0 {
+		Options.StoreInterval = storeIntervalDefault
 	}
 }

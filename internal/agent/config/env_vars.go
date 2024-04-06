@@ -7,24 +7,15 @@ import (
 )
 
 func parseEnvVars() {
-	var envVars Config
-	err := env.Parse(&envVars)
+	err := env.Parse(&Options)
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
 	}
 
-	if serverAddrStr := envVars.Address; serverAddrStr != "" {
-		serverAddr, err := parseServerAddr(serverAddrStr)
-		if err != nil {
-			log.Fatal(err)
-		}
-		ListenAddr = "http://" + serverAddr.Host + ":" + serverAddr.Port
+	if Options.ReportInterval <= 0 {
+		Options.ReportInterval = reportIntervalDefault
 	}
-
-	if envVars.ReportInterval != 0 {
-		ReportInterval = envVars.ReportInterval
-	}
-	if envVars.PollInterval != 0 {
-		PollInterval = envVars.PollInterval
+	if Options.PollInterval <= 0 {
+		Options.PollInterval = pollIntervalDefault
 	}
 }
