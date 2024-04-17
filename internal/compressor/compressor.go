@@ -3,7 +3,6 @@ package compressor
 import (
 	"bytes"
 	"compress/gzip"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -95,12 +94,7 @@ func GzipMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(gzipFn)
 }
 
-func Compress(input interface{}) ([]byte, error) {
-	marshalled, err := json.Marshal(input)
-	if err != nil {
-		return nil, err
-	}
-
+func Compress(marshalled []byte) ([]byte, error) {
 	var b bytes.Buffer
 	w, err := gzip.NewWriterLevel(&b, gzip.BestCompression)
 	if err != nil {

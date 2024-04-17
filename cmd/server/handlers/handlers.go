@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -18,6 +19,7 @@ import (
 	"github.com/aykuli/observer/internal/server/models"
 	"github.com/aykuli/observer/internal/server/repository"
 	"github.com/aykuli/observer/internal/server/storage"
+	"github.com/aykuli/observer/internal/sign"
 )
 
 type Metric struct {
@@ -290,11 +292,31 @@ func (m *Metric) Update() http.HandlerFunc {
 func (m *Metric) BatchUpdate() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var metrics []models.Metric
-		dec := json.NewDecoder(r.Body)
-		if err := dec.Decode(&metrics); err != nil {
+		if err := json.NewDecoder(r.Body).Decode(&metrics); err != nil {
 			logger.Log.Debug("cannot decode json request body", zap.Error(err))
 			http.Error(w, errors.NewDBError(err).Error(), http.StatusInternalServerError)
 			return
+		}
+
+		if config.Options.Key != "" {
+			byteData, err := json.Marshal(metrics)
+			if err != nil {
+				logger.Log.Debug("cannot marshal metrics", zap.Error(err))
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			signString := r.Header.Get("HashSHA256")
+			equal, err := sign.Verify(byteData, config.Options.Key, signString)
+			if err != nil {
+				logger.Log.Debug("sign verifying error", zap.Error(err))
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			if !equal {
+				logger.Log.Debug("signs not equal", zap.Error(err))
+				http.Error(w, "cannot serve this agent", http.StatusBadRequest)
+				return
+			}
 		}
 
 		if config.Options.DatabaseDsn != "" {
@@ -337,6 +359,15 @@ func (m *Metric) BatchUpdate() http.HandlerFunc {
 			logger.Log.Debug("cannot encode json request body", zap.Error(err))
 			http.Error(w, errors.NewDBError(err).Error(), http.StatusInternalServerError)
 			return
+		}
+
+		if config.Options.Key != "" {
+			signString, err := sign.GetHmacString(resp, config.Options.Key)
+			if err != nil {
+				log.Printf("Err singing body with err %+v", err)
+				return
+			}
+			r.Header.Set("HashSHA256", signString)
 		}
 
 		_, err = w.Write(resp)
