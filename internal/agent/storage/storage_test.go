@@ -12,24 +12,21 @@ func TestGetStats(t *testing.T) {
 		CounterMetrics: map[string]int64{},
 	}
 
-	tests := []struct {
-		name string
-	}{
-		{
-			name: "check if it works",
-		},
-	}
+	t.Run("get gauge stats", func(t *testing.T) {
+		memStorage.GetStats()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			GetStats(&memStorage)
+		assert.Contains(t, memStorage.CounterMetrics, "PollCount")
+		assert.Contains(t, memStorage.GaugeMetrics, "LastGC")
+		assert.Contains(t, memStorage.GaugeMetrics, "MSpanSys")
+		assert.Contains(t, memStorage.GaugeMetrics, "StackInuse")
+		assert.Contains(t, memStorage.GaugeMetrics, "StackInuse")
+	})
 
-			assert.Contains(t, memStorage.CounterMetrics, "PollCount")
-			assert.Contains(t, memStorage.GaugeMetrics, "LastGC")
-			assert.Contains(t, memStorage.GaugeMetrics, "MSpanSys")
-			assert.Contains(t, memStorage.GaugeMetrics, "StackInuse")
-			assert.Contains(t, memStorage.GaugeMetrics, "StackInuse")
-		})
-	}
+	t.Run("get system util info values", func(t *testing.T) {
+		memStorage.GetSystemUtilInfo()
 
+		assert.Contains(t, memStorage.GaugeMetrics, "TotalMemory")
+		assert.Contains(t, memStorage.GaugeMetrics, "FreeMemory")
+		assert.Contains(t, memStorage.GaugeMetrics, "CPUutilization1")
+	})
 }

@@ -44,7 +44,7 @@ func main() {
 
 	newClient := client.MerticsClient{
 		ServerAddr: "http://" + config.Options.Address,
-		MemStorage: memStorage,
+		MemStorage: *memStorage,
 	}
 
 	defer collectTicker.Stop()
@@ -53,9 +53,10 @@ func main() {
 	for {
 		select {
 		case <-collectTicker.C:
-			storage.GetStats(&memStorage)
+			go memStorage.GetStats()
+			go memStorage.GetSystemUtilInfo()
 		case <-sendTicker.C:
-			newClient.SendMetrics(request)
+			newClient.SendMetricsPool(request)
 			newClient.SendBatchMetrics(request)
 		case <-sendQuit:
 			sendTicker.Stop()

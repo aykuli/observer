@@ -147,12 +147,67 @@ func (m *MerticsClient) SendBatchMetrics(req *resty.Request) {
 	}
 }
 
-func getSignString(body []byte, key string) (string, error) {
-	h := hmac.New(sha256.New, []byte(key))
-	_, err := h.Write(body)
-	if err == nil {
-		return hex.EncodeToString(h.Sum(nil)), nil
-	} else {
-		return "", err
+func (m *MerticsClient) SendOneMetric(req *resty.Request, metric models.Metric) {
+	req.SetHeader("Content-Type", "application/json")
+	req.URL = fmt.Sprintf("%s/update/", m.ServerAddr)
+	req.Method = http.MethodPost
+
+	marshalled, err := json.Marshal(metric)
+	if err != nil {
+		log.Printf("Err JSON marshalling metrics with err %+v", err)
+		return
 	}
+
+	gzipped, err := compressor.Compress(marshalled)
+	if err != nil {
+		log.Printf("Err gzipping gauge metric %s with err %+v", metric.ID, err)
+		return
+	}
+
+	_, err = req.SetBody(gzipped).Send()
+	if err != nil {
+		log.Printf("Err sending gauge metric %s with err %+v", metric.ID, err)
+	}
+}
+
+func (m *MerticsClient) SendMetricsPool(req *resty.Request) {
+	if config.Options.RateLimit == 0 {
+		m.SendMetrics(req)
+		return
+	}
+
+	limit := config.Options.RateLimit
+	jobs := make(chan models.Metric, limit)
+
+	m.MemStorage.Mutex.RLock()
+	for k, v := range m.MemStorage.GaugeMetrics {
+		metric := models.Metric{
+			ID:    k,
+			MType: gaugeMType,
+			Delta: nil,
+			Value: &v,
+		}
+		jobs <- metric
+	}
+
+	for k, v := range m.MemStorage.CounterMetrics {
+		metric := models.Metric{
+			ID:    k,
+			MType: counterMType,
+			Delta: &v,
+			Value: nil,
+		}
+		jobs <- metric
+	}
+	m.MemStorage.Mutex.RUnlock()
+
+	for w := 0; w < limit; w++ {
+		go func() {
+			for metric := range jobs {
+				m.SendOneMetric(req, metric)
+			}
+		}()
+	}
+
+	close(jobs)
 }
