@@ -14,20 +14,19 @@ import (
 
 type MerticsClient struct {
 	ServerAddr string
-	MemStorage storage.MemStorage
+	memStorage storage.MemStorage
+}
+
+func NewMetricsClint(serverAddr string, memStorage storage.MemStorage) *MerticsClient {
+	return &MerticsClient{
+		ServerAddr: "http://" + serverAddr,
+		memStorage: memStorage,
+	}
 }
 
 func (m *MerticsClient) SendMetrics(req *resty.Request) {
-	req.SetHeader("Content-Type", "application/json")
-	req.URL = fmt.Sprintf("%s/update/", m.ServerAddr)
-	req.Method = http.MethodPost
-
-	for k, v := range m.MemStorage.GaugeMetrics {
-		m.sendOneMetric(req, models.Metric{ID: k, MType: "gauge", Delta: nil, Value: &v})
-	}
-
-	for k, v := range m.MemStorage.CounterMetrics {
-		m.sendOneMetric(req, models.Metric{ID: k, MType: "counter", Delta: &v, Value: nil})
+	for _, mt := range m.memStorage.GetAllMetrics() {
+		m.sendOneMetric(req, mt)
 	}
 }
 
@@ -53,16 +52,7 @@ func (m *MerticsClient) SendBatchMetrics(req *resty.Request) {
 	req.URL = fmt.Sprintf("%s/updates/", m.ServerAddr)
 	req.Method = http.MethodPost
 
-	var metrics []models.Metric
-	for k := range m.MemStorage.GaugeMetrics {
-		v := m.MemStorage.GaugeMetrics[k]
-		metrics = append(metrics, models.Metric{ID: k, MType: "gauge", Delta: nil, Value: &v})
-	}
-
-	for k := range m.MemStorage.CounterMetrics {
-		d := m.MemStorage.CounterMetrics[k]
-		metrics = append(metrics, models.Metric{ID: k, MType: "counter", Delta: &d, Value: nil})
-	}
+	metrics := m.memStorage.GetAllMetrics()
 
 	if len(metrics) > 0 {
 		gzipped, err := compressor.Compress(metrics)
