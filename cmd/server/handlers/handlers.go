@@ -3,15 +3,18 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
+	"github.com/aykuli/observer/internal/server/config"
 	"github.com/aykuli/observer/internal/server/logger"
 	"github.com/aykuli/observer/internal/server/models"
 	"github.com/aykuli/observer/internal/server/storage"
+	"github.com/aykuli/observer/internal/sign"
 )
 
 type APIV1 struct {
@@ -274,8 +277,35 @@ func (v *APIV1) BatchUpdate() http.HandlerFunc {
 		w.Header().Set("Content-Encoding", "gzip")
 		w.WriteHeader(http.StatusOK)
 
-		enc := json.NewEncoder(w)
-		if err := enc.Encode(&outMetrics); err != nil {
+		byteData, err := json.Marshal(outMetrics)
+		if config.Options.Key != "" {
+			if err != nil {
+				logger.Log.Debug("cannot marshal metrics", zap.Error(err))
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			signString := r.Header.Get("HashSHA256")
+			equal, err := sign.Verify(byteData, config.Options.Key, signString)
+			if err != nil {
+				logger.Log.Debug("sign verifying error", zap.Error(err))
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			if !equal {
+				logger.Log.Debug("signs not equal", zap.Error(err))
+				http.Error(w, "cannot serve this agent", http.StatusBadRequest)
+				return
+			}
+
+			signHeader, err := sign.GetHmacString(byteData, config.Options.Key)
+			if err != nil {
+				log.Printf("Err singing body with err %+v", err)
+				return
+			}
+			r.Header.Set("HashSHA256", signHeader)
+		}
+
+		if _, err = w.Write(byteData); err != nil {
 			logger.Log.Debug("cannot encode json request body", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		}

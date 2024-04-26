@@ -23,7 +23,7 @@ func TestSendMetrics(t *testing.T) {
 
 		memstorage := storage.NewMemStorage()
 		memstorage.GarbageStats()
-		client := NewMetricsClint(testServer.URL, memstorage)
+		client := NewMetricsClint(testServer.URL, &memstorage)
 
 		client.SendMetrics(req)
 		client.SendBatchMetrics(req)
