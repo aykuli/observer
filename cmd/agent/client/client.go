@@ -38,7 +38,13 @@ func (m *MerticsClient) sendOneMetric(req *resty.Request, metric models.Metric) 
 	req.URL = fmt.Sprintf("%s/update/", m.ServerAddr)
 	req.Method = http.MethodPost
 
-	gzipped, err := compressor.Compress(metric)
+	marshalled, err := json.Marshal(metric)
+	if err != nil {
+		log.Printf("Err JSON marshalling metrics with err %+v", err)
+		return
+	}
+
+	gzipped, err := compressor.Compress(marshalled)
 	if err != nil {
 		log.Printf("Err zipping metric %+v", err)
 		return
