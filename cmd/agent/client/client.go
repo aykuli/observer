@@ -19,7 +19,7 @@ type MerticsClient struct {
 
 func NewMetricsClint(serverAddr string, memStorage storage.MemStorage) *MerticsClient {
 	return &MerticsClient{
-		ServerAddr: "http://" + serverAddr,
+		ServerAddr: serverAddr,
 		memStorage: memStorage,
 	}
 }

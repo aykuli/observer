@@ -22,7 +22,7 @@ func NewMemStorage() MemStorage {
 	}
 }
 
-func (m *MemStorage) GetStats() {
+func (m *MemStorage) GarbageStats() {
 	memstats := runtime.MemStats{}
 	runtime.ReadMemStats(&memstats)
 
