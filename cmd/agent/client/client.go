@@ -17,10 +17,10 @@ import (
 
 type MerticsClient struct {
 	ServerAddr string
-	memStorage storage.MemStorage
+	memStorage *storage.MemStorage
 }
 
-func NewMetricsClint(serverAddr string, memStorage storage.MemStorage) *MerticsClient {
+func NewMetricsClint(serverAddr string, memStorage *storage.MemStorage) *MerticsClient {
 	return &MerticsClient{
 		ServerAddr: serverAddr,
 		memStorage: memStorage,

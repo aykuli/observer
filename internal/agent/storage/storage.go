@@ -3,10 +3,7 @@ package storage
 import (
 	"math/rand"
 	"runtime"
-
 	"sync"
-
-	"github.com/aykuli/observer/internal/agent/models"
 
 	"github.com/shirou/gopsutil/v3/mem"
 

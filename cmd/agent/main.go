@@ -36,7 +36,7 @@ func main() {
 	request := restyClient.R()
 
 	memStorage := storage.NewMemStorage()
-	newClient := client.NewMetricsClint("http://"+config.Options.Address, memStorage)
+	newClient := client.NewMetricsClint("http://"+config.Options.Address, &memStorage)
 
 	collectTicker := time.NewTicker(time.Duration(config.Options.PollInterval) * time.Second)
 	collectQuit := make(chan struct{})
