@@ -1,15 +1,18 @@
 package client
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 
 	"github.com/go-resty/resty/v2"
 
+	"github.com/aykuli/observer/internal/agent/config"
 	"github.com/aykuli/observer/internal/agent/models"
 	"github.com/aykuli/observer/internal/agent/storage"
 	"github.com/aykuli/observer/internal/compressor"
+	"github.com/aykuli/observer/internal/sign"
 )
 
 type MerticsClient struct {
@@ -55,7 +58,22 @@ func (m *MerticsClient) SendBatchMetrics(req *resty.Request) {
 	metrics := m.memStorage.GetAllMetrics()
 
 	if len(metrics) > 0 {
-		gzipped, err := compressor.Compress(metrics)
+		marshalled, err := json.Marshal(metrics)
+		if err != nil {
+			log.Printf("Err JSON marshalling metrics with err %+v", err)
+			return
+		}
+
+		if config.Options.Key != "" {
+			signString, err := sign.GetHmacString(marshalled, config.Options.Key)
+			if err != nil {
+				log.Printf("Err singing body with err %+v", err)
+				return
+			}
+			req.Header.Set("HashSHA256", signString)
+		}
+
+		gzipped, err := compressor.Compress(marshalled)
 		if err != nil {
 			log.Printf("Err compressing metrics with err %+v", err)
 			return

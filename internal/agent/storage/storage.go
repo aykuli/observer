@@ -4,7 +4,11 @@ import (
 	"math/rand"
 	"runtime"
 
+	"sync"
+
 	"github.com/aykuli/observer/internal/agent/models"
+
+	"github.com/shirou/gopsutil/v3/mem"
 )
 
 type gaugeMetrics map[string]float64
@@ -13,6 +17,7 @@ type counterMetrics map[string]int64
 type MemStorage struct {
 	gaugeMetrics   gaugeMetrics
 	counterMetrics counterMetrics
+	mutex          sync.RWMutex
 }
 
 func NewMemStorage() MemStorage {
@@ -25,6 +30,7 @@ func NewMemStorage() MemStorage {
 func (m *MemStorage) GarbageStats() {
 	memstats := runtime.MemStats{}
 	runtime.ReadMemStats(&memstats)
+	m.mutex.Lock()
 
 	m.counterMetrics["PollCount"] = 1
 
@@ -57,6 +63,17 @@ func (m *MemStorage) GarbageStats() {
 	m.gaugeMetrics["TotalAlloc"] = float64(memstats.TotalAlloc)
 	m.gaugeMetrics["TotalAlloc"] = float64(memstats.TotalAlloc)
 	m.gaugeMetrics["RandomValue"] = randFloat(0, 1000000)
+	m.mutex.Unlock()
+}
+
+func (m *MemStorage) GetSystemUtilInfo() {
+	v, _ := mem.VirtualMemory()
+
+	m.mutex.Lock()
+	m.gaugeMetrics["TotalMemory"] = float64(v.Total)
+	m.gaugeMetrics["FreeMemory"] = float64(v.Free)
+	m.gaugeMetrics["CPUutilization1"] = float64(v.UsedPercent)
+	m.mutex.Unlock()
 }
 
 func (m *MemStorage) GetAllMetrics() []models.Metric {

@@ -49,6 +49,7 @@ func main() {
 		select {
 		case <-collectTicker.C:
 			memStorage.GarbageStats()
+			memStorage.GetSystemUtilInfo()
 		case <-sendTicker.C:
 			newClient.SendMetrics(request)
 			newClient.SendBatchMetrics(request)

@@ -23,4 +23,18 @@ func TestGarbageStats(t *testing.T) {
 		assert.Contains(t, metricNames, "StackInuse")
 	})
 
+	t.Run("get system util info values", func(t *testing.T) {
+		memStorage := NewMemStorage()
+		memStorage.GetSystemUtilInfo()
+
+		var metricNames []string
+		for _, mt := range memStorage.GetAllMetrics() {
+			metricNames = append(metricNames, mt.ID)
+		}
+
+		assert.Contains(t, metricNames, "TotalMemory")
+		assert.Contains(t, metricNames, "FreeMemory")
+		assert.Contains(t, metricNames, "CPUutilization1")
+	})
+
 }
