@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/aykuli/observer/internal/server/models"
 	"github.com/aykuli/observer/internal/server/storage"
@@ -12,6 +13,7 @@ import (
 
 type Storage struct {
 	memStorage storage.MemStorage
+	mutex      sync.RWMutex
 }
 
 func NewStorage() (*Storage, error) {
@@ -27,12 +29,14 @@ func (rs *Storage) Ping(ctx context.Context) error {
 
 func (rs *Storage) GetMetrics(ctx context.Context) (string, error) {
 	var metrics []string
+	rs.mutex.RLock()
 	for k, v := range rs.memStorage.GaugeMetrics {
 		metrics = append(metrics, fmt.Sprintf("%s: %f", k, v))
 	}
 	for k, d := range rs.memStorage.CounterMetrics {
 		metrics = append(metrics, fmt.Sprintf("%s: %d", k, d))
 	}
+	rs.mutex.RUnlock()
 
 	return strings.Join(metrics, ",\n"), nil
 }
@@ -42,6 +46,8 @@ func (rs *Storage) ReadMetric(ctx context.Context, mName, mType string) (*models
 	var value float64
 	var delta int64
 	var ok bool
+
+	rs.mutex.RLock()
 	switch mType {
 	case "gauge":
 		value, ok = rs.memStorage.GaugeMetrics[mName]
@@ -58,6 +64,7 @@ func (rs *Storage) ReadMetric(ctx context.Context, mName, mType string) (*models
 	default:
 		return nil, errors.New("no such metric")
 	}
+	rs.mutex.RUnlock()
 
 	return &outMt, nil
 }
@@ -67,6 +74,7 @@ func (rs *Storage) SaveMetric(ctx context.Context, metric models.Metric) (*model
 	var value float64
 	var delta int64
 
+	rs.mutex.Lock()
 	switch metric.MType {
 	case "gauge":
 		value = *metric.Value
@@ -80,6 +88,7 @@ func (rs *Storage) SaveMetric(ctx context.Context, metric models.Metric) (*model
 	default:
 		return nil, newRAMErr("SaveMetric", errors.New("no such metric type"))
 	}
+	rs.mutex.RLock()
 
 	return &outMt, nil
 }
@@ -89,6 +98,7 @@ func (rs *Storage) SaveBatch(ctx context.Context, metrics []models.Metric) ([]mo
 	var value float64
 	var delta int64
 
+	rs.mutex.Lock()
 	for _, mt := range metrics {
 		outMt := models.Metric{ID: mt.ID, MType: mt.MType}
 
@@ -108,6 +118,7 @@ func (rs *Storage) SaveBatch(ctx context.Context, metrics []models.Metric) ([]mo
 
 		outMetrics = append(outMetrics, outMt)
 	}
+	rs.mutex.Unlock()
 
 	return outMetrics, nil
 }

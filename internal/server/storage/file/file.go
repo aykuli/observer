@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -19,6 +20,7 @@ type Storage struct {
 	memStorage    storage.MemStorage
 	filePath      string
 	storeInterval int
+	mutex         sync.RWMutex
 }
 
 func NewStorage(filePath string, restore bool, storeInterval int) (*Storage, error) {
@@ -102,10 +104,13 @@ func (fs *Storage) saveMetricsToFile() error {
 	defer producer.Close()
 
 	if len(fs.memStorage.GaugeMetrics) > 0 || len(fs.memStorage.CounterMetrics) > 0 {
+		fs.mutex.Lock()
 		err = producer.WriteMetrics(storage.MemStorage{
 			GaugeMetrics:   fs.memStorage.GaugeMetrics,
 			CounterMetrics: fs.memStorage.CounterMetrics,
 		})
+		fs.mutex.Unlock()
+
 		if err != nil {
 			return err
 		}
@@ -120,12 +125,14 @@ func (fs *Storage) Ping(ctx context.Context) error {
 
 func (fs *Storage) GetMetrics(ctx context.Context) (string, error) {
 	var metrics []string
+	fs.mutex.RLock()
 	for k, v := range fs.memStorage.GaugeMetrics {
 		metrics = append(metrics, fmt.Sprintf("%s: %f", k, v))
 	}
 	for k, d := range fs.memStorage.CounterMetrics {
 		metrics = append(metrics, fmt.Sprintf("%s: %d", k, d))
 	}
+	fs.mutex.RUnlock()
 
 	return strings.Join(metrics, ",\n"), nil
 }
@@ -134,6 +141,8 @@ func (fs *Storage) ReadMetric(ctx context.Context, mName, mType string) (*models
 	outMt := models.Metric{ID: mName, MType: mType}
 	var value float64
 	var delta int64
+
+	fs.mutex.RLock()
 	switch mType {
 	case "gauge":
 		v, ok := fs.memStorage.GaugeMetrics[mName]
@@ -152,6 +161,7 @@ func (fs *Storage) ReadMetric(ctx context.Context, mName, mType string) (*models
 	default:
 		return nil, newFSError("ReadMetric", errors.New("no such metric"))
 	}
+	fs.mutex.RUnlock()
 
 	return &outMt, nil
 }
@@ -161,6 +171,7 @@ func (fs *Storage) SaveMetric(ctx context.Context, metric models.Metric) (*model
 	var value float64
 	var delta int64
 
+	fs.mutex.Lock()
 	switch metric.MType {
 	case "gauge":
 		value = *metric.Value
@@ -174,6 +185,8 @@ func (fs *Storage) SaveMetric(ctx context.Context, metric models.Metric) (*model
 	default:
 		return nil, newFSError("SaveMetric", errors.New("no such metric type"))
 	}
+	fs.mutex.Unlock()
+
 	if fs.storeInterval == 0 {
 		if err := fs.saveMetricsToFile(); err != nil {
 			return nil, err
@@ -187,6 +200,7 @@ func (fs *Storage) SaveBatch(ctx context.Context, metrics []models.Metric) ([]mo
 	var outMetrics []models.Metric
 	var delta int64
 
+	fs.mutex.Lock()
 	for _, mt := range metrics {
 		outMt := models.Metric{ID: mt.ID, MType: mt.MType}
 		switch mt.MType {
@@ -203,6 +217,8 @@ func (fs *Storage) SaveBatch(ctx context.Context, metrics []models.Metric) ([]mo
 
 		outMetrics = append(outMetrics, outMt)
 	}
+	fs.mutex.Unlock()
+
 	if fs.storeInterval == 0 {
 		if err := fs.saveMetricsToFile(); err != nil {
 			return nil, err
