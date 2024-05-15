@@ -26,7 +26,7 @@ func NewProducer(filename string) (*Producer, error) {
 	}, nil
 }
 
-func (p *Producer) WriteMetrics(mStore storage.MemStorage) error {
+func (p *Producer) WriteMetrics(mStore *storage.MemStorage) error {
 	data, err := json.Marshal(&mStore)
 	if err != nil {
 		return err

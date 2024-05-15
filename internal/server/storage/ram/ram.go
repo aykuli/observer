@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
 
 	"github.com/aykuli/observer/internal/server/models"
 	"github.com/aykuli/observer/internal/server/storage"
@@ -13,7 +12,6 @@ import (
 
 type Storage struct {
 	memStorage storage.MemStorage
-	mutex      sync.RWMutex
 }
 
 func NewStorage() (*Storage, error) {
@@ -29,14 +27,12 @@ func (rs *Storage) Ping(ctx context.Context) error {
 
 func (rs *Storage) GetMetrics(ctx context.Context) (string, error) {
 	var metrics []string
-	rs.mutex.RLock()
-	for k, v := range rs.memStorage.GaugeMetrics {
+	for k, v := range rs.memStorage.GetGaugeMetrics() {
 		metrics = append(metrics, fmt.Sprintf("%s: %f", k, v))
 	}
-	for k, d := range rs.memStorage.CounterMetrics {
+	for k, d := range rs.memStorage.GetCounterMetrics() {
 		metrics = append(metrics, fmt.Sprintf("%s: %d", k, d))
 	}
-	rs.mutex.RUnlock()
 
 	return strings.Join(metrics, ",\n"), nil
 }
@@ -47,16 +43,15 @@ func (rs *Storage) ReadMetric(ctx context.Context, mName, mType string) (*models
 	var delta int64
 	var ok bool
 
-	rs.mutex.RLock()
 	switch mType {
 	case "gauge":
-		value, ok = rs.memStorage.GaugeMetrics[mName]
+		value, ok = rs.memStorage.GetGauge(mName)
 		if !ok {
 			return nil, errors.New("no such metric")
 		}
 		outMt.Value = &value
 	case "counter":
-		delta, ok = rs.memStorage.CounterMetrics[mName]
+		delta, ok = rs.memStorage.GetCounter(mName)
 		if !ok {
 			return nil, errors.New("no such metric")
 		}
@@ -64,7 +59,6 @@ func (rs *Storage) ReadMetric(ctx context.Context, mName, mType string) (*models
 	default:
 		return nil, errors.New("no such metric")
 	}
-	rs.mutex.RUnlock()
 
 	return &outMt, nil
 }
@@ -74,21 +68,19 @@ func (rs *Storage) SaveMetric(ctx context.Context, metric models.Metric) (*model
 	var value float64
 	var delta int64
 
-	rs.mutex.Lock()
 	switch metric.MType {
 	case "gauge":
 		value = *metric.Value
-		rs.memStorage.GaugeMetrics[metric.ID] = value
+		rs.memStorage.SaveGauge(metric.ID, value)
 		outMt.Value = &value
 	case "counter":
 		delta = *metric.Delta
-		rs.memStorage.CounterMetrics[metric.ID] += delta
+		rs.memStorage.SaveCounter(metric.ID, delta)
 		delta = rs.memStorage.CounterMetrics[metric.ID]
 		outMt.Delta = &delta
 	default:
 		return nil, newRAMErr("SaveMetric", errors.New("no such metric type"))
 	}
-	rs.mutex.RLock()
 
 	return &outMt, nil
 }
@@ -98,19 +90,17 @@ func (rs *Storage) SaveBatch(ctx context.Context, metrics []models.Metric) ([]mo
 	var value float64
 	var delta int64
 
-	rs.mutex.Lock()
 	for _, mt := range metrics {
 		outMt := models.Metric{ID: mt.ID, MType: mt.MType}
 
 		switch mt.MType {
 		case "gauge":
 			value = *mt.Value
-			rs.memStorage.GaugeMetrics[mt.ID] = value
+			rs.memStorage.SaveGauge(mt.ID, value)
 			outMt.Value = &value
 		case "counter":
 			delta = *mt.Delta
-			rs.memStorage.CounterMetrics[mt.ID] += delta
-			delta = rs.memStorage.CounterMetrics[mt.ID]
+			rs.memStorage.SaveCounter(mt.ID, delta)
 			outMt.Delta = &delta
 		default:
 			return nil, newRAMErr("SaveBatch", errors.New("no such metric type"))
@@ -118,7 +108,6 @@ func (rs *Storage) SaveBatch(ctx context.Context, metrics []models.Metric) ([]mo
 
 		outMetrics = append(outMetrics, outMt)
 	}
-	rs.mutex.Unlock()
 
 	return outMetrics, nil
 }

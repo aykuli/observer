@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -20,7 +19,6 @@ type Storage struct {
 	memStorage    storage.MemStorage
 	filePath      string
 	storeInterval int
-	mutex         sync.RWMutex
 }
 
 func NewStorage(filePath string, restore bool, storeInterval int) (*Storage, error) {
@@ -104,12 +102,10 @@ func (fs *Storage) saveMetricsToFile() error {
 	defer producer.Close()
 
 	if len(fs.memStorage.GaugeMetrics) > 0 || len(fs.memStorage.CounterMetrics) > 0 {
-		fs.mutex.Lock()
-		err = producer.WriteMetrics(storage.MemStorage{
-			GaugeMetrics:   fs.memStorage.GaugeMetrics,
-			CounterMetrics: fs.memStorage.CounterMetrics,
+		err = producer.WriteMetrics(&storage.MemStorage{
+			GaugeMetrics:   fs.memStorage.GetGaugeMetrics(),
+			CounterMetrics: fs.memStorage.GetCounterMetrics(),
 		})
-		fs.mutex.Unlock()
 
 		if err != nil {
 			return err
@@ -125,14 +121,12 @@ func (fs *Storage) Ping(ctx context.Context) error {
 
 func (fs *Storage) GetMetrics(ctx context.Context) (string, error) {
 	var metrics []string
-	fs.mutex.RLock()
 	for k, v := range fs.memStorage.GaugeMetrics {
 		metrics = append(metrics, fmt.Sprintf("%s: %f", k, v))
 	}
 	for k, d := range fs.memStorage.CounterMetrics {
 		metrics = append(metrics, fmt.Sprintf("%s: %d", k, d))
 	}
-	fs.mutex.RUnlock()
 
 	return strings.Join(metrics, ",\n"), nil
 }
@@ -142,17 +136,16 @@ func (fs *Storage) ReadMetric(ctx context.Context, mName, mType string) (*models
 	var value float64
 	var delta int64
 
-	fs.mutex.RLock()
 	switch mType {
 	case "gauge":
-		v, ok := fs.memStorage.GaugeMetrics[mName]
+		v, ok := fs.memStorage.GetGauge(mName)
 		if !ok {
 			return nil, errors.New("no such metric")
 		}
 		value = v
 		outMt.Value = &value
 	case "counter":
-		d, ok := fs.memStorage.CounterMetrics[mName]
+		d, ok := fs.memStorage.GetCounter(mName)
 		if !ok {
 			return nil, errors.New("no such metric")
 		}
@@ -161,7 +154,6 @@ func (fs *Storage) ReadMetric(ctx context.Context, mName, mType string) (*models
 	default:
 		return nil, newFSError("ReadMetric", errors.New("no such metric"))
 	}
-	fs.mutex.RUnlock()
 
 	return &outMt, nil
 }
@@ -171,21 +163,19 @@ func (fs *Storage) SaveMetric(ctx context.Context, metric models.Metric) (*model
 	var value float64
 	var delta int64
 
-	fs.mutex.Lock()
 	switch metric.MType {
 	case "gauge":
 		value = *metric.Value
-		fs.memStorage.GaugeMetrics[metric.ID] = value
+		fs.memStorage.SaveGauge(metric.ID, value)
 		outMt.Value = &value
 	case "counter":
 		delta = *metric.Delta
-		fs.memStorage.CounterMetrics[metric.ID] += delta
-		delta = fs.memStorage.CounterMetrics[metric.ID]
+		fs.memStorage.SaveCounter(metric.ID, delta)
+		//delta = fs.memStorage.CounterMetrics[metric.ID]
 		outMt.Delta = &delta
 	default:
 		return nil, newFSError("SaveMetric", errors.New("no such metric type"))
 	}
-	fs.mutex.Unlock()
 
 	if fs.storeInterval == 0 {
 		if err := fs.saveMetricsToFile(); err != nil {
@@ -200,16 +190,15 @@ func (fs *Storage) SaveBatch(ctx context.Context, metrics []models.Metric) ([]mo
 	var outMetrics []models.Metric
 	var delta int64
 
-	fs.mutex.Lock()
 	for _, mt := range metrics {
 		outMt := models.Metric{ID: mt.ID, MType: mt.MType}
 		switch mt.MType {
 		case "gauge":
-			fs.memStorage.GaugeMetrics[mt.ID] = *mt.Value
+			fs.memStorage.SaveGauge(mt.ID, *mt.Value)
 		case "counter":
 			delta = *mt.Delta
-			fs.memStorage.CounterMetrics[mt.ID] += delta
-			delta = fs.memStorage.CounterMetrics[mt.ID]
+			fs.memStorage.SaveCounter(mt.ID, delta)
+			//delta = fs.memStorage.CounterMetrics[mt.ID]
 			outMt.Delta = &delta
 		default:
 			return nil, newFSError("SaveBatch", errors.New("no such metric type"))
@@ -217,7 +206,6 @@ func (fs *Storage) SaveBatch(ctx context.Context, metrics []models.Metric) ([]mo
 
 		outMetrics = append(outMetrics, outMt)
 	}
-	fs.mutex.Unlock()
 
 	if fs.storeInterval == 0 {
 		if err := fs.saveMetricsToFile(); err != nil {
