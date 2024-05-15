@@ -3,6 +3,7 @@ package storage
 import (
 	"math/rand"
 	"runtime"
+	"sync"
 
 	"github.com/aykuli/observer/internal/agent/models"
 )
@@ -13,6 +14,7 @@ type counterMetrics map[string]int64
 type MemStorage struct {
 	gaugeMetrics   gaugeMetrics
 	counterMetrics counterMetrics
+	mutex          sync.RWMutex
 }
 
 func NewMemStorage() MemStorage {
@@ -26,7 +28,8 @@ func (m *MemStorage) GarbageStats() {
 	memstats := runtime.MemStats{}
 	runtime.ReadMemStats(&memstats)
 
-	m.counterMetrics["PollCount"] = 1
+	m.mutex.Lock()
+	m.counterMetrics["PollCount"]++
 
 	m.gaugeMetrics["Alloc"] = float64(memstats.Alloc)
 	m.gaugeMetrics["BuckHashSys"] = float64(memstats.BuckHashSys)
@@ -57,11 +60,13 @@ func (m *MemStorage) GarbageStats() {
 	m.gaugeMetrics["TotalAlloc"] = float64(memstats.TotalAlloc)
 	m.gaugeMetrics["TotalAlloc"] = float64(memstats.TotalAlloc)
 	m.gaugeMetrics["RandomValue"] = randFloat(0, 1000000)
+	m.mutex.Unlock()
 }
 
 func (m *MemStorage) GetAllMetrics() []models.Metric {
 	var outMetrics []models.Metric
 
+	m.mutex.RLock()
 	for k := range m.gaugeMetrics {
 		v := m.gaugeMetrics[k]
 		outMetrics = append(outMetrics, models.Metric{ID: k, MType: "gauge", Delta: nil, Value: &v})
@@ -70,6 +75,8 @@ func (m *MemStorage) GetAllMetrics() []models.Metric {
 		d := m.counterMetrics[k]
 		outMetrics = append(outMetrics, models.Metric{ID: k, MType: "counter", Delta: &d, Value: nil})
 	}
+	m.mutex.RUnlock()
+
 	return outMetrics
 }
 
