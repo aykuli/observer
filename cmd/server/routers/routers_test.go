@@ -9,11 +9,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/aykuli/observer/internal/server/storage/ram"
+	"github.com/aykuli/observer/internal/server/config"
+	"github.com/aykuli/observer/internal/server/storage/local"
 )
 
 func TestRamStorage(t *testing.T) {
-	store, err := ram.NewStorage()
+	options := config.Config{
+		StoreInterval:   0,
+		FileStoragePath: "",
+		Restore:         false,
+	}
+	store, err := local.NewStorage(options)
 	require.NoError(t, err)
 	ts := httptest.NewServer(MetricsRouter(store))
 	defer ts.Close()
@@ -117,7 +123,12 @@ func TestRamStorage(t *testing.T) {
 }
 
 func TestUpdateMetricsRouter(t *testing.T) {
-	store, err := ram.NewStorage()
+	options := config.Config{
+		StoreInterval:   0,
+		FileStoragePath: "",
+		Restore:         false,
+	}
+	store, err := local.NewStorage(options)
 	require.NoError(t, err)
 	ts := httptest.NewServer(MetricsRouter(store))
 	defer ts.Close()

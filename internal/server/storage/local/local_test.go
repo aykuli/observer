@@ -1,4 +1,4 @@
-package file
+package local
 
 import (
 	"context"
@@ -7,13 +7,17 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/aykuli/observer/internal/server/config"
 	"github.com/aykuli/observer/internal/server/models"
 )
 
 func TestFileStorage(t *testing.T) {
-	filePath := "1.json"
-	storeInterval := 10
-	store, err := NewStorage(filePath, false, storeInterval)
+	options := config.Config{
+		StoreInterval:   10,
+		FileStoragePath: "1.json",
+		Restore:         false,
+	}
+	store, err := NewStorage(options)
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -35,9 +39,9 @@ func TestFileStorage(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, *metric.Value, *mIn.Value)
-		require.FileExists(t, filePath)
+		require.FileExists(t, options.FileStoragePath)
 
-		defer os.Remove(filePath)
+		defer os.Remove(options.FileStoragePath)
 	})
 
 	t.Run("SaveMetric counter metric", func(t *testing.T) {

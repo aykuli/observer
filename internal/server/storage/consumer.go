@@ -1,13 +1,12 @@
-package file
+package storage
 
 import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io/fs"
 	"os"
-
-	"github.com/aykuli/observer/internal/server/storage"
 )
 
 // Consumer reads data from file in JSON
@@ -15,6 +14,8 @@ type Consumer struct {
 	file    *os.File
 	scanner *bufio.Scanner
 }
+
+var ErrNoData = errors.New("no metrics was found")
 
 func NewConsumer(filename string) (*Consumer, error) {
 	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_APPEND, fs.ModePerm)
@@ -28,23 +29,23 @@ func NewConsumer(filename string) (*Consumer, error) {
 	}, nil
 }
 
-func (c *Consumer) ReadMetrics() (*storage.MemStorage, error) {
+func (c *Consumer) ReadMetrics() (Metrics, error) {
 	c.scanner.Split(scanLastNonEmptyLine)
 	var line string
 	for c.scanner.Scan() {
 		line = c.scanner.Text()
 	}
 
+	var mStore Metrics
 	if len(line) < 1 {
-		return nil, nil
+		return mStore, ErrNoData
 	}
 
 	defer c.file.Close()
 
-	var mStore *storage.MemStorage
 	err := json.Unmarshal([]byte(line), &mStore)
 	if err != nil {
-		return nil, err
+		return mStore, err
 	}
 
 	return mStore, nil

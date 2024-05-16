@@ -8,9 +8,8 @@ import (
 	"github.com/aykuli/observer/internal/server/config"
 	"github.com/aykuli/observer/internal/server/logger"
 	"github.com/aykuli/observer/internal/server/storage"
-	"github.com/aykuli/observer/internal/server/storage/file"
+	"github.com/aykuli/observer/internal/server/storage/local"
 	"github.com/aykuli/observer/internal/server/storage/postgres"
-	"github.com/aykuli/observer/internal/server/storage/ram"
 )
 
 func main() {
@@ -33,9 +32,5 @@ func initStorage() (storage.Storage, error) {
 		return postgres.NewStorage(config.Options.DatabaseDsn)
 	}
 
-	if config.Options.FileStoragePath != "" {
-		return file.NewStorage(config.Options.FileStoragePath, config.Options.Restore, config.Options.StoreInterval)
-	}
-
-	return ram.NewStorage()
+	return local.NewStorage(config.Options)
 }

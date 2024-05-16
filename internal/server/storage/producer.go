@@ -1,12 +1,10 @@
-package file
+package storage
 
 import (
 	"bufio"
 	"encoding/json"
 	"io/fs"
 	"os"
-
-	"github.com/aykuli/observer/internal/server/storage"
 )
 
 type Producer struct {
@@ -26,7 +24,7 @@ func NewProducer(filename string) (*Producer, error) {
 	}, nil
 }
 
-func (p *Producer) WriteMetrics(mStore *storage.MemStorage) error {
+func (p *Producer) WriteMetrics(mStore Metrics) error {
 	data, err := json.Marshal(&mStore)
 	if err != nil {
 		return err
