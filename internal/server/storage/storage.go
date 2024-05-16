@@ -30,16 +30,18 @@ func (ms *MemStorage) GetCounter(mName string) (int64, bool) {
 	return val, ok
 }
 
-func (ms *MemStorage) SaveGauge(mName string, value float64) {
+func (ms *MemStorage) SaveGauge(mName string, value float64) float64 {
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
 	ms.GaugeMetrics[mName] = value
+	return ms.GaugeMetrics[mName]
 }
 
-func (ms *MemStorage) SaveCounter(mName string, delta int64) {
+func (ms *MemStorage) SaveCounter(mName string, delta int64) int64 {
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
 	ms.CounterMetrics[mName] += delta
+	return ms.CounterMetrics[mName]
 }
 
 func (ms *MemStorage) GetGaugeMetrics() GaugeMetrics {

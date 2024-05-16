@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -19,6 +20,7 @@ type Storage struct {
 	memStorage    storage.MemStorage
 	filePath      string
 	storeInterval int
+	wg            sync.WaitGroup
 }
 
 func NewStorage(filePath string, restore bool, storeInterval int) (*Storage, error) {
@@ -58,7 +60,9 @@ func (fs *Storage) checkFile(filePath string) error {
 	return nil
 }
 
+// WaitGroup work with file reference https://gist.github.com/scukonick/7bfee57c71fafe8291a4e12c5eb0f570
 func (fs *Storage) load() error {
+	fs.wg.Add(1)
 	consumer, err := NewConsumer(fs.filePath)
 	if err != nil {
 		return nil
@@ -72,8 +76,10 @@ func (fs *Storage) load() error {
 		return nil
 	}
 
-	fs.memStorage.GaugeMetrics = fStore.GaugeMetrics
-	fs.memStorage.CounterMetrics = fStore.CounterMetrics
+	fs.memStorage.GaugeMetrics = fStore.GetGaugeMetrics()
+	fs.memStorage.CounterMetrics = fStore.GetCounterMetrics()
+	fs.wg.Done()
+
 	return nil
 }
 
@@ -94,7 +100,9 @@ func (fs *Storage) startSaveMetricsTicker() {
 	}
 }
 
+// WaitGroup work with file reference https://gist.github.com/scukonick/7bfee57c71fafe8291a4e12c5eb0f570
 func (fs *Storage) saveMetricsToFile() error {
+	fs.wg.Add(1)
 	producer, err := NewProducer(fs.filePath)
 	if err != nil {
 		return err
@@ -111,6 +119,7 @@ func (fs *Storage) saveMetricsToFile() error {
 			return err
 		}
 	}
+	fs.wg.Done()
 
 	return nil
 }
@@ -121,10 +130,10 @@ func (fs *Storage) Ping(ctx context.Context) error {
 
 func (fs *Storage) GetMetrics(ctx context.Context) (string, error) {
 	var metrics []string
-	for k, v := range fs.memStorage.GaugeMetrics {
+	for k, v := range fs.memStorage.GetGaugeMetrics() {
 		metrics = append(metrics, fmt.Sprintf("%s: %f", k, v))
 	}
-	for k, d := range fs.memStorage.CounterMetrics {
+	for k, d := range fs.memStorage.GetCounterMetrics() {
 		metrics = append(metrics, fmt.Sprintf("%s: %d", k, d))
 	}
 
@@ -166,13 +175,12 @@ func (fs *Storage) SaveMetric(ctx context.Context, metric models.Metric) (*model
 	switch metric.MType {
 	case "gauge":
 		value = *metric.Value
-		fs.memStorage.SaveGauge(metric.ID, value)
-		outMt.Value = &value
+		newValue := fs.memStorage.SaveGauge(metric.ID, value)
+		outMt.Value = &newValue
 	case "counter":
 		delta = *metric.Delta
-		fs.memStorage.SaveCounter(metric.ID, delta)
-		//delta = fs.memStorage.CounterMetrics[metric.ID]
-		outMt.Delta = &delta
+		newDelta := fs.memStorage.SaveCounter(metric.ID, delta)
+		outMt.Delta = &newDelta
 	default:
 		return nil, newFSError("SaveMetric", errors.New("no such metric type"))
 	}
