@@ -82,7 +82,7 @@ func (m *MemStorage) GetAllMetrics() []models.Metric {
 
 func (m *MemStorage) ResetCounter() {
 	m.mutex.Lock()
-	m.gaugeMetrics["PollCount"] = 0
+	m.counterMetrics["PollCount"] = 0
 	m.mutex.Unlock()
 }
 

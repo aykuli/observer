@@ -28,6 +28,7 @@ func (m *MerticsClient) SendMetrics(req *resty.Request) {
 	for _, mt := range m.memStorage.GetAllMetrics() {
 		m.sendOneMetric(req, mt)
 	}
+	m.memStorage.ResetCounter()
 }
 
 func (m *MerticsClient) sendOneMetric(req *resty.Request, metric models.Metric) {
@@ -41,11 +42,8 @@ func (m *MerticsClient) sendOneMetric(req *resty.Request, metric models.Metric) 
 		return
 	}
 
-	_, err = req.SetBody(gzipped).Send()
-	if err != nil {
+	if _, err = req.SetBody(gzipped).Send(); err != nil {
 		log.Printf("Err sending gauge metric %s with err %+v", metric.ID, err)
-	} else {
-		m.memStorage.ResetCounter()
 	}
 }
 
@@ -63,7 +61,7 @@ func (m *MerticsClient) SendBatchMetrics(req *resty.Request) {
 			return
 		}
 
-		if _, err := req.SetBody(gzipped).Send(); err != nil {
+		if _, err = req.SetBody(gzipped).Send(); err != nil {
 			log.Printf("Err sending metrics with err %+v", err)
 		} else {
 			m.memStorage.ResetCounter()
