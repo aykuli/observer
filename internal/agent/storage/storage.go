@@ -80,6 +80,12 @@ func (m *MemStorage) GetAllMetrics() []models.Metric {
 	return outMetrics
 }
 
+func (m *MemStorage) ResetCounter() {
+	m.mutex.Lock()
+	m.gaugeMetrics["PollCount"] = 0
+	m.mutex.Unlock()
+}
+
 func randFloat(min, max float64) float64 {
 	return min + rand.Float64()*(max-min)
 }
