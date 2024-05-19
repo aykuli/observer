@@ -73,6 +73,9 @@ func (r *MetricsRepository) SelectAllValues(ctx context.Context) ([]*models.Metr
 		}
 		metrics = append(metrics, m)
 	}
+	if err = result.Err(); err != nil {
+		return nil, err
+	}
 	return metrics, nil
 }
 
@@ -108,7 +111,7 @@ func (r *MetricsRepository) Save(ctx context.Context, metric models.Metric) (*mo
 		return nil, err
 	}
 
-	outMt, err := r.save(ctx, metric)
+	outMt, err := r.save(tx, ctx, metric)
 	if err != nil {
 		if err = tx.Rollback(ctx); err != nil {
 			return nil, err
@@ -121,21 +124,21 @@ func (r *MetricsRepository) Save(ctx context.Context, metric models.Metric) (*mo
 	return outMt, nil
 }
 
-func (r *MetricsRepository) save(ctx context.Context, metric models.Metric) (*models.Metric, error) {
+func (r *MetricsRepository) save(tx pgx.Tx, ctx context.Context, metric models.Metric) (*models.Metric, error) {
 	var outMt *models.Metric
 	var exist int
-	result := r.conn.QueryRow(ctx, checkMetricExistanceQuery, pgx.NamedArgs{"name": metric.ID, "type": metric.MType})
+	result := tx.QueryRow(ctx, checkMetricExistanceQuery, pgx.NamedArgs{"name": metric.ID, "type": metric.MType})
 	err := result.Scan(&exist)
 	if err != nil {
 		return nil, err
 	}
 	if exist == 0 {
-		outMt, err = r.insert(ctx, metric)
+		outMt, err = r.insert(tx, ctx, metric)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		outMt, err = r.update(ctx, metric)
+		outMt, err = r.update(tx, ctx, metric)
 		if err != nil {
 			return nil, err
 		}
@@ -144,7 +147,7 @@ func (r *MetricsRepository) save(ctx context.Context, metric models.Metric) (*mo
 	return outMt, nil
 }
 
-func (r *MetricsRepository) insert(ctx context.Context, metric models.Metric) (*models.Metric, error) {
+func (r *MetricsRepository) insert(tx pgx.Tx, ctx context.Context, metric models.Metric) (*models.Metric, error) {
 	var outMt = metric
 	var args pgx.NamedArgs
 	var value float64
@@ -161,7 +164,7 @@ func (r *MetricsRepository) insert(ctx context.Context, metric models.Metric) (*
 		return nil, pgx.ErrNoRows
 	}
 
-	result := r.conn.QueryRow(ctx, insertMetricQuery, args)
+	result := tx.QueryRow(ctx, insertMetricQuery, args)
 
 	var valueSQL sql.NullFloat64
 	var deltaSQL sql.NullInt64
@@ -179,18 +182,18 @@ func (r *MetricsRepository) insert(ctx context.Context, metric models.Metric) (*
 	return &outMt, nil
 }
 
-func (r *MetricsRepository) update(ctx context.Context, metric models.Metric) (*models.Metric, error) {
+func (r *MetricsRepository) update(tx pgx.Tx, ctx context.Context, metric models.Metric) (*models.Metric, error) {
 	outMt := models.Metric{ID: metric.ID, MType: metric.MType}
 
 	if metric.MType == "gauge" {
 		args := pgx.NamedArgs{"name": metric.ID, "type": "gauge", "value": &metric.Value, "delta": nil}
-		if _, err := r.conn.Exec(ctx, updateGaugeQuery, args); err != nil {
+		if _, err := tx.Exec(ctx, updateGaugeQuery, args); err != nil {
 			return &outMt, err
 		}
 		outMt.Value = metric.Value
 		return &outMt, nil
 	} else if metric.MType == "counter" {
-		result := r.conn.QueryRow(ctx, updateCounterQuery, pgx.NamedArgs{"name": metric.ID, "delta": &metric.Delta})
+		result := tx.QueryRow(ctx, updateCounterQuery, pgx.NamedArgs{"name": metric.ID, "delta": &metric.Delta})
 		var delta int64
 		if err := result.Scan(&delta); err != nil {
 			return &outMt, err
@@ -213,7 +216,7 @@ func (r *MetricsRepository) SaveBatch(ctx context.Context, metrics []models.Metr
 	}
 
 	for _, mt := range metrics {
-		outMt, err := r.save(ctx, mt)
+		outMt, err := r.save(tx, ctx, mt)
 		if err != nil {
 			if err = tx.Rollback(ctx); err != nil {
 				return nil, err
