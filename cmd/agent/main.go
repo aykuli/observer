@@ -48,7 +48,6 @@ func main() {
 		case <-collectTicker.C:
 			memStorage.GarbageStats()
 		case <-sendTicker.C:
-			newClient.SendMetrics(request)
 			newClient.SendBatchMetrics(request)
 		}
 	}

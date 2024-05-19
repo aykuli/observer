@@ -25,6 +25,7 @@ func NewMetricsClint(serverAddr string, memStorage *storage.MemStorage) *Mertics
 	}
 }
 
+// SendMetrics deprecated from iteration 5
 func (m *MerticsClient) SendMetrics(req *resty.Request) {
 	for _, mt := range m.memStorage.GetAllMetrics() {
 		err := m.sendOneMetric(req, mt)
