@@ -103,7 +103,7 @@ func (v *APIV1) ReadMetric() http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		}
 
-		defer r.Body.Close()
+		r.Body.Close()
 	}
 }
 
@@ -189,11 +189,6 @@ func (v *APIV1) UpdateFromJSON() http.HandlerFunc {
 //	@Router			/update/{metricType}/{metricName}/{metricValue} [POST]
 func (v *APIV1) Update() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Only POST method allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
 		metricType := chi.URLParam(r, "metricType")
 		metricName := chi.URLParam(r, "metricName")
 		metricValue := chi.URLParam(r, "metricValue")
