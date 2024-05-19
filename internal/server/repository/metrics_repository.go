@@ -22,7 +22,7 @@ var (
 	updateGaugeQuery          = `UPDATE metrics SET value = @value WHERE name=@name AND type='gauge' RETURNING value`
 	updateCounterQuery        = `UPDATE metrics SET delta = delta + @delta WHERE name=@name AND type='counter' RETURNING delta`
 	insertMetricQuery         = `INSERT INTO metrics (name, type, value, delta) VALUES (@name, @type, @value, @delta) RETURNING value, delta`
-	checkMetricExistanceQuery = `SELECT count(*) FROM metrics WHERE name=@name AND type=@type FOR UPDATE`
+	checkMetricExistanceQuery = `SELECT count(*) FROM metrics WHERE name=@name AND type=@type`
 )
 
 type MetricDB struct {
