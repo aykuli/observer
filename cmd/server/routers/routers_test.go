@@ -13,7 +13,7 @@ import (
 	"github.com/aykuli/observer/internal/server/storage/local"
 )
 
-func TestRamStorage(t *testing.T) {
+func TestLocalStorage(t *testing.T) {
 	options := config.Config{
 		StoreInterval:   0,
 		FileStoragePath: "",

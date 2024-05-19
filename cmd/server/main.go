@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	if err := logger.Initialize("Info"); err != nil {
+	if err := logger.Initialize("info"); err != nil {
 		log.Print(err)
 	}
 
