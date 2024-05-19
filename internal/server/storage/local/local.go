@@ -57,15 +57,13 @@ func (s *Storage) checkFile(filePath string) error {
 func (s *Storage) startSaveMetricsTicker(storeInterval int) {
 	collectTicker := time.NewTicker(time.Duration(storeInterval) * time.Second)
 	defer collectTicker.Stop()
-	for {
-		select {
-		case <-collectTicker.C:
-			err := s.memStorage.SaveToFile()
-			if err != nil {
-				logger.Log.Debug("failed metrics saving to local.", zap.Error(err))
-				collectTicker.Stop()
-			}
+	for range collectTicker.C {
+		err := s.memStorage.SaveToFile()
+		if err != nil {
+			logger.Log.Debug("failed metrics saving to local.", zap.Error(err))
+			collectTicker.Stop()
 		}
+
 	}
 }
 
