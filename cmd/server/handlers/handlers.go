@@ -9,8 +9,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
+	"github.com/aykuli/observer/internal/models"
 	"github.com/aykuli/observer/internal/server/logger"
-	"github.com/aykuli/observer/internal/server/models"
 	"github.com/aykuli/observer/internal/server/storage"
 )
 
@@ -42,7 +42,7 @@ func (v *APIV1) Ping() http.HandlerFunc {
 			return
 		}
 
-		defer r.Body.Close()
+		r.Body.Close()
 	}
 }
 

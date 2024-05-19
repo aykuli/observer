@@ -39,9 +39,7 @@ func main() {
 	newClient := client.NewMetricsClint("http://"+config.Options.Address, &memStorage)
 
 	collectTicker := time.NewTicker(time.Duration(config.Options.PollInterval) * time.Second)
-	collectQuit := make(chan struct{})
 	sendTicker := time.NewTicker(time.Duration(config.Options.ReportInterval) * time.Second)
-	sendQuit := make(chan struct{})
 	defer collectTicker.Stop()
 	defer sendTicker.Stop()
 
@@ -52,12 +50,6 @@ func main() {
 		case <-sendTicker.C:
 			newClient.SendMetrics(request)
 			newClient.SendBatchMetrics(request)
-		case <-sendQuit:
-			sendTicker.Stop()
-			return
-		case <-collectQuit:
-			collectTicker.Stop()
-			return
 		}
 	}
 }

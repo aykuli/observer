@@ -7,8 +7,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/aykuli/observer/internal/models"
 	"github.com/aykuli/observer/internal/server/config"
-	"github.com/aykuli/observer/internal/server/models"
 )
 
 func TestFileStorage(t *testing.T) {

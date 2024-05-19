@@ -5,7 +5,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/aykuli/observer/internal/server/models"
+	"github.com/aykuli/observer/internal/models"
 )
 
 type GaugeMetrics map[string]float64

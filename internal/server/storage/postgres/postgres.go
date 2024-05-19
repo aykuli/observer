@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/aykuli/observer/internal/server/models"
+	"github.com/aykuli/observer/internal/models"
 	"github.com/aykuli/observer/internal/server/repository"
 )
 

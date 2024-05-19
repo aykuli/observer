@@ -14,7 +14,6 @@ import (
 func TestSendMetrics(t *testing.T) {
 	t.Run("check if works", func(t *testing.T) {
 		reqCounter := 0
-
 		testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			reqCounter++
 		}))

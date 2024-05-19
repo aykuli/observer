@@ -10,9 +10,9 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/aykuli/observer/internal/models"
 	"github.com/aykuli/observer/internal/server/config"
 	"github.com/aykuli/observer/internal/server/logger"
-	"github.com/aykuli/observer/internal/server/models"
 	"github.com/aykuli/observer/internal/server/storage"
 )
 
@@ -56,7 +56,7 @@ func (s *Storage) checkFile(filePath string) error {
 
 func (s *Storage) startSaveMetricsTicker(storeInterval int) {
 	collectTicker := time.NewTicker(time.Duration(storeInterval) * time.Second)
-	collectQuit := make(chan struct{})
+	defer collectTicker.Stop()
 	for {
 		select {
 		case <-collectTicker.C:
@@ -65,8 +65,6 @@ func (s *Storage) startSaveMetricsTicker(storeInterval int) {
 				logger.Log.Debug("failed metrics saving to local.", zap.Error(err))
 				collectTicker.Stop()
 			}
-		case <-collectQuit:
-			collectTicker.Stop()
 		}
 	}
 }

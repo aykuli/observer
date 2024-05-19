@@ -7,7 +7,8 @@ import (
 
 	"github.com/go-resty/resty/v2"
 
-	"github.com/aykuli/observer/internal/agent/models"
+	"github.com/aykuli/observer/internal/models"
+
 	"github.com/aykuli/observer/internal/agent/storage"
 	"github.com/aykuli/observer/internal/compressor"
 )
@@ -26,25 +27,30 @@ func NewMetricsClint(serverAddr string, memStorage *storage.MemStorage) *Mertics
 
 func (m *MerticsClient) SendMetrics(req *resty.Request) {
 	for _, mt := range m.memStorage.GetAllMetrics() {
-		m.sendOneMetric(req, mt)
+		err := m.sendOneMetric(req, mt)
+		if err != nil {
+			log.Printf("Err sending gauge metric %s with err %+v", mt.ID, err)
+			return
+		}
 	}
 	m.memStorage.ResetCounter()
 }
 
-func (m *MerticsClient) sendOneMetric(req *resty.Request, metric models.Metric) {
+func (m *MerticsClient) sendOneMetric(req *resty.Request, metric models.Metric) error {
 	req.SetHeader("Content-Type", "application/json")
 	req.URL = fmt.Sprintf("%s/update/", m.ServerAddr)
 	req.Method = http.MethodPost
 
 	gzipped, err := compressor.Compress(metric)
 	if err != nil {
-		log.Printf("Err zipping metric %+v", err)
-		return
+		return err
 	}
 
 	if _, err = req.SetBody(gzipped).Send(); err != nil {
-		log.Printf("Err sending gauge metric %s with err %+v", metric.ID, err)
+		return err
 	}
+
+	return nil
 }
 
 func (m *MerticsClient) SendBatchMetrics(req *resty.Request) {
