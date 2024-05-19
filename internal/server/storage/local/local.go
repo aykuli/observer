@@ -61,7 +61,6 @@ func (s *Storage) startSaveMetricsTicker(storeInterval int) {
 		err := s.memStorage.SaveToFile()
 		if err != nil {
 			logger.Log.Debug("failed metrics saving to local.", zap.Error(err))
-			collectTicker.Stop()
 		}
 
 	}
