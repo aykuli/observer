@@ -113,15 +113,12 @@ func (r *MetricsRepository) Save(ctx context.Context, tx pgx.Tx, metric models.M
 	}
 
 	if exist {
-		outMt, err = r.insert(tx, ctx, metric)
-		if err != nil {
-			return nil, err
-		}
-	} else {
 		outMt, err = r.update(tx, ctx, metric)
-		if err != nil {
-			return nil, err
-		}
+	} else {
+		outMt, err = r.insert(tx, ctx, metric)
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	return outMt, nil
