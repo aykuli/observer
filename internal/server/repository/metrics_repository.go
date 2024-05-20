@@ -107,13 +107,12 @@ func (r *MetricsRepository) FindByNameAndType(ctx context.Context, mName, mType 
 // Save update metric if it exists else insert it
 func (r *MetricsRepository) Save(ctx context.Context, tx pgx.Tx, metric models.Metric) (*models.Metric, error) {
 	var outMt *models.Metric
-	var exist int
-	result := tx.QueryRow(ctx, checkMetricExistanceQuery, pgx.NamedArgs{"name": metric.ID, "type": metric.MType})
-	err := result.Scan(&exist)
+	exist, err := r.exist(ctx, tx, metric.ID, metric.MType)
 	if err != nil {
 		return nil, err
 	}
-	if exist == 0 {
+
+	if exist {
 		outMt, err = r.insert(tx, ctx, metric)
 		if err != nil {
 			return nil, err
@@ -126,6 +125,17 @@ func (r *MetricsRepository) Save(ctx context.Context, tx pgx.Tx, metric models.M
 	}
 
 	return outMt, nil
+}
+
+func (r *MetricsRepository) exist(ctx context.Context, tx pgx.Tx, mName, mType string) (bool, error) {
+	var exist int
+	result := tx.QueryRow(ctx, checkMetricExistanceQuery, pgx.NamedArgs{"name": mName, "type": mType})
+	err := result.Scan(&exist)
+	if err != nil {
+		return false, err
+	}
+
+	return exist != 0, nil
 }
 
 func (r *MetricsRepository) insert(tx pgx.Tx, ctx context.Context, metric models.Metric) (*models.Metric, error) {
@@ -171,6 +181,7 @@ func (r *MetricsRepository) update(tx pgx.Tx, ctx context.Context, metric models
 		if _, err := tx.Exec(ctx, updateGaugeQuery, args); err != nil {
 			return &outMt, err
 		}
+
 		outMt.Value = metric.Value
 		return &outMt, nil
 	} else if metric.MType == "counter" {
@@ -178,7 +189,6 @@ func (r *MetricsRepository) update(tx pgx.Tx, ctx context.Context, metric models
 		var delta int64
 		if err := result.Scan(&delta); err != nil {
 			return &outMt, err
-
 		}
 
 		outMt.Delta = &delta
@@ -194,9 +204,6 @@ func (r *MetricsRepository) SaveBatch(ctx context.Context, tx pgx.Tx, metrics []
 	for _, mt := range metrics {
 		outMt, err := r.Save(ctx, tx, mt)
 		if err != nil {
-			if err = tx.Rollback(ctx); err != nil {
-				return nil, err
-			}
 			return nil, err
 		}
 		outMts = append(outMts, *outMt)
