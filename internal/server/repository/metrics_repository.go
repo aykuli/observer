@@ -48,15 +48,15 @@ func (r *MetricsRepository) InitTable(ctx context.Context) error {
 	return nil
 }
 
-func (r *MetricsRepository) SelectAllValues(ctx context.Context) ([]*models.Metric, error) {
-	var metrics []*models.Metric
+func (r *MetricsRepository) SelectAllValues(ctx context.Context, tx pgx.Tx) ([]models.Metric, error) {
+	var metrics []models.Metric
 
-	result, err := r.conn.Query(ctx, selectAllLastMetricsQuery)
+	result, err := tx.Query(ctx, selectAllLastMetricsQuery)
 	if err != nil {
 		return nil, err
 	}
 	for result.Next() {
-		var m = &models.Metric{}
+		var m models.Metric
 		var value sql.NullFloat64
 		var delta sql.NullInt64
 
@@ -105,26 +105,7 @@ func (r *MetricsRepository) FindByNameAndType(ctx context.Context, mName, mType 
 }
 
 // Save update metric if it exists else insert it
-func (r *MetricsRepository) Save(ctx context.Context, metric models.Metric) (*models.Metric, error) {
-	tx, err := r.conn.Begin(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	outMt, err := r.save(tx, ctx, metric)
-	if err != nil {
-		if err = tx.Rollback(ctx); err != nil {
-			return nil, err
-		}
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return nil, err
-	}
-
-	return outMt, nil
-}
-
-func (r *MetricsRepository) save(tx pgx.Tx, ctx context.Context, metric models.Metric) (*models.Metric, error) {
+func (r *MetricsRepository) Save(ctx context.Context, tx pgx.Tx, metric models.Metric) (*models.Metric, error) {
 	var outMt *models.Metric
 	var exist int
 	result := tx.QueryRow(ctx, checkMetricExistanceQuery, pgx.NamedArgs{"name": metric.ID, "type": metric.MType})
@@ -207,16 +188,11 @@ func (r *MetricsRepository) update(tx pgx.Tx, ctx context.Context, metric models
 	return &outMt, pgx.ErrNoRows
 }
 
-func (r *MetricsRepository) SaveBatch(ctx context.Context, metrics []models.Metric) ([]models.Metric, error) {
+func (r *MetricsRepository) SaveBatch(ctx context.Context, tx pgx.Tx, metrics []models.Metric) ([]models.Metric, error) {
 	var outMts []models.Metric
 
-	tx, err := r.conn.Begin(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	for _, mt := range metrics {
-		outMt, err := r.save(tx, ctx, mt)
+		outMt, err := r.Save(ctx, tx, mt)
 		if err != nil {
 			if err = tx.Rollback(ctx); err != nil {
 				return nil, err
@@ -225,10 +201,5 @@ func (r *MetricsRepository) SaveBatch(ctx context.Context, metrics []models.Metr
 		}
 		outMts = append(outMts, *outMt)
 	}
-
-	if err = tx.Commit(ctx); err != nil {
-		return nil, err
-	}
-
 	return outMts, nil
 }

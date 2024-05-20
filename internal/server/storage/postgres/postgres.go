@@ -80,15 +80,23 @@ func (s *DBStorage) GetMetrics(ctx context.Context) (string, error) {
 	defer conn.Release()
 
 	metricsRepo := repository.NewMetricsRepository(conn)
-	metrics, err := metricsRepo.SelectAllValues(ctx)
+	tx, err := conn.Begin(ctx)
 	if err != nil {
+		return "", newDBError(err)
+	}
+
+	metrics, err := metricsRepo.SelectAllValues(ctx, tx)
+	if err != nil {
+		if err = tx.Rollback(ctx); err != nil {
+			return "", newDBError(err)
+		}
 		return "", newDBError(err)
 	}
 
 	return s.parseMetrics(metrics), nil
 }
 
-func (s *DBStorage) parseMetrics(metrics []*models.Metric) string {
+func (s *DBStorage) parseMetrics(metrics []models.Metric) string {
 	var pair []string
 	for _, m := range metrics {
 		var valueStr string
@@ -127,8 +135,20 @@ func (s *DBStorage) SaveMetric(ctx context.Context, metric models.Metric) (*mode
 	defer conn.Release()
 
 	metricsRepo := repository.NewMetricsRepository(conn)
-	outMetric, err := metricsRepo.Save(ctx, metric)
+	tx, err := conn.Begin(ctx)
 	if err != nil {
+		return nil, newDBError(err)
+	}
+
+	outMetric, err := metricsRepo.Save(ctx, tx, metric)
+	if err != nil {
+		if err = tx.Rollback(ctx); err != nil {
+			return nil, newDBError(err)
+		}
+		return nil, newDBError(err)
+	}
+
+	if err = tx.Commit(ctx); err != nil {
 		return nil, newDBError(err)
 	}
 
@@ -143,9 +163,22 @@ func (s *DBStorage) SaveBatch(ctx context.Context, metrics []models.Metric) ([]m
 	defer conn.Release()
 
 	metricsRepo := repository.NewMetricsRepository(conn)
-	outMetrics, err := metricsRepo.SaveBatch(ctx, metrics)
+
+	tx, err := conn.Begin(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	outMetrics, err := metricsRepo.SaveBatch(ctx, tx, metrics)
+	if err != nil {
+		if err = tx.Rollback(ctx); err != nil {
+			return nil, newDBError(err)
+		}
+		return nil, newDBError(err)
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return nil, newDBError(err)
 	}
 
 	return outMetrics, nil
