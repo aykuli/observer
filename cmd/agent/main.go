@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/go-resty/resty/v2"
@@ -10,8 +11,22 @@ import (
 	"github.com/aykuli/observer/internal/agent/storage"
 )
 
+const (
+	RetryCount              = 3
+	RetryMinWaitTimeSeconds = 1
+	RetryMaxWaitTimeSeconds = 5
+)
+
 func main() {
-	restyClient := resty.New()
+	restyClient := resty.New().
+		SetRetryCount(RetryCount).
+		SetRetryWaitTime(RetryMinWaitTimeSeconds).
+		SetRetryMaxWaitTime(RetryMaxWaitTimeSeconds).
+		AddRetryCondition(func(r *resty.Response, err error) bool {
+			isConnRefused := r.StatusCode() == 0
+			isServerDBErr := r.StatusCode() == http.StatusInternalServerError
+			return isConnRefused || isServerDBErr
+		})
 	restyClient.OnBeforeRequest(func(c *resty.Client, r *resty.Request) error {
 		r.SetHeader("Content-Encoding", "gzip")
 		r.SetHeader("Accept-Encoding", "gzip")
@@ -21,32 +36,19 @@ func main() {
 	request := restyClient.R()
 
 	memStorage := storage.NewMemStorage()
+	newClient := client.NewMetricsClint("http://"+config.Options.Address, &memStorage)
+
 	collectTicker := time.NewTicker(time.Duration(config.Options.PollInterval) * time.Second)
-	collectQuit := make(chan struct{})
-
 	sendTicker := time.NewTicker(time.Duration(config.Options.ReportInterval) * time.Second)
-	sendQuit := make(chan struct{})
-
-	newClient := client.MerticsClient{
-		ServerAddr: "http://" + config.Options.Address,
-		MemStorage: memStorage,
-	}
-
 	defer collectTicker.Stop()
 	defer sendTicker.Stop()
 
 	for {
 		select {
 		case <-collectTicker.C:
-			storage.GetStats(&memStorage)
+			memStorage.GarbageStats()
 		case <-sendTicker.C:
-			newClient.SendMetrics(request)
-		case <-sendQuit:
-			sendTicker.Stop()
-			return
-		case <-collectQuit:
-			collectTicker.Stop()
-			return
+			newClient.SendBatchMetrics(request)
 		}
 	}
 }

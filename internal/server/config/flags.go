@@ -12,13 +12,10 @@ func parseFlags() {
 	fs.StringVar(&Options.FileStoragePath, "f", fileStorageDefault, "path to save metrics values")
 	fs.IntVar(&Options.StoreInterval, "i", 300, "metrics store interval in seconds")
 	fs.BoolVar(&Options.Restore, "r", true, "restore metrics from file")
+	fs.StringVar(&Options.DatabaseDsn, "d", "", "database source name")
 
 	err := fs.Parse(os.Args[1:])
 	if err != nil {
 		log.Print(err)
-	}
-
-	if Options.FileStoragePath == "" {
-		Options.SaveMetrics = false
 	}
 }

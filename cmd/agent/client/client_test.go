@@ -12,43 +12,22 @@ import (
 )
 
 func TestSendMetrics(t *testing.T) {
-	tests := []struct {
-		name       string
-		memStorage storage.MemStorage
-	}{
-		{
-			name: "gauge and count metrics sent",
-			memStorage: storage.MemStorage{
-				GaugeMetrics: map[string]float64{
-					"GKey1": 1.25, "GKey2": 2.25, "GKey3": 3.25},
-				CounterMetrics: map[string]int64{"CKey1": 15},
-			},
-		},
-		{
-			name: "no metrics to send",
-			memStorage: storage.MemStorage{
-				GaugeMetrics:   map[string]float64{},
-				CounterMetrics: map[string]int64{},
-			},
-		},
-	}
-
-	for _, tt := range tests {
+	t.Run("check if works", func(t *testing.T) {
 		reqCounter := 0
 		testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			reqCounter++
 		}))
 		defer testServer.Close()
+		req := resty.New().R()
 
-		t.Run(tt.name, func(t *testing.T) {
-			req := resty.New().R()
-			req.Method = http.MethodPost
-			req.URL = testServer.URL
+		memstorage := storage.NewMemStorage()
+		memstorage.GarbageStats()
+		client := NewMetricsClint(testServer.URL, &memstorage)
 
-			newClient := MerticsClient{ServerAddr: testServer.URL, MemStorage: tt.memStorage}
-			newClient.SendMetrics(req)
+		client.SendMetrics(req)
+		client.SendBatchMetrics(req)
+		metrics := memstorage.GetAllMetrics()
 
-			assert.Equal(t, len(tt.memStorage.GaugeMetrics)+len(tt.memStorage.CounterMetrics), reqCounter)
-		})
-	}
+		assert.Equal(t, len(metrics)+1, reqCounter)
+	})
 }

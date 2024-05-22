@@ -8,6 +8,8 @@ import (
 	"github.com/aykuli/observer/internal/server/config"
 	"github.com/aykuli/observer/internal/server/logger"
 	"github.com/aykuli/observer/internal/server/storage"
+	"github.com/aykuli/observer/internal/server/storage/local"
+	"github.com/aykuli/observer/internal/server/storage/postgres"
 )
 
 func main() {
@@ -15,20 +17,20 @@ func main() {
 		log.Print(err)
 	}
 
-	memStorage := storage.MemStorage{
-		GaugeMetrics:   storage.GaugeMetrics{},
-		CounterMetrics: storage.CounterMetrics{},
-	}
-
-	if err := memStorage.Load(); err != nil {
+	memStorage, err := initStorage()
+	if err != nil {
 		log.Print(err)
 	}
 
-	if config.Options.SaveMetrics && config.Options.StoreInterval > 0 {
-		go memStorage.SaveMetricsPeriodically()
-	}
-
-	if err := http.ListenAndServe(config.Options.Address, logger.WithLogging(routers.MetricsRouter(&memStorage))); err != nil {
+	if err = http.ListenAndServe(config.Options.Address, logger.WithLogging(routers.MetricsRouter(memStorage))); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func initStorage() (storage.Storage, error) {
+	if config.Options.DatabaseDsn != "" {
+		return postgres.NewStorage(config.Options.DatabaseDsn)
+	}
+
+	return local.NewStorage(config.Options)
 }
