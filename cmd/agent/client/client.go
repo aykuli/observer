@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 
 	"github.com/go-resty/resty/v2"
 
@@ -31,8 +32,6 @@ func NewMetricsClient(config config.Config, memStorage *storage.MemStorage) *Met
 		limit:      config.RateLimit,
 	}
 }
-
-// SendMetrics deprecated from iteration 5
 func (m *MetricsClient) SendMetrics(req *resty.Request) {
 	metrics := m.memStorage.GetAllMetrics()
 
@@ -47,26 +46,39 @@ func (m *MetricsClient) SendMetrics(req *resty.Request) {
 		return
 	}
 
+	var wg sync.WaitGroup
 	jobs := make(chan models.Metric, m.limit)
-	for i, metric := range metrics {
+	errs := make(chan error, 1)
+
+	for _, metric := range metrics {
 		jobs <- metric
-		if i == len(metrics)-1 {
-			m.memStorage.ResetCounter()
-		}
 	}
 
 	for w := 0; w < m.limit; w++ {
+		wg.Add(1)
 		go func() {
 			for metric := range jobs {
 				if err := m.sendOneMetric(req, metric); err != nil {
+					errs <- err
 					log.Printf("Err sending metric %s with err %+v", metric.ID, err)
-					return
+
+					wg.Done()
 				}
 			}
+
+			wg.Done()
 		}()
 	}
 
+	if err := <-errs; err != nil {
+		close(jobs)
+		wg.Wait()
+		return
+	}
+
 	close(jobs)
+	m.memStorage.ResetCounter()
+	wg.Wait()
 }
 
 func (m *MetricsClient) sendOneMetric(req *resty.Request, metric models.Metric) error {
