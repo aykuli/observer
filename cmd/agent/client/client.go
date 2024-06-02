@@ -15,7 +15,7 @@ import (
 	"github.com/aykuli/observer/internal/compressor"
 )
 
-type MerticsClient struct {
+type MetricsClient struct {
 	ServerAddr string
 	memStorage *storage.MemStorage
 	signKey    string
