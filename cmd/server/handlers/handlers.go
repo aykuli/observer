@@ -186,7 +186,10 @@ func (v *APIV1) UpdateFromJSON() http.HandlerFunc {
 			return
 		}
 
-		w.Header().Set("HashSHA256", sign.GetHmacString(byteData, config.Options.Key))
+		if config.Options.Key != "" {
+			w.Header().Set("HashSHA256", sign.GetHmacString(byteData, config.Options.Key))
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		if _, err = w.Write(byteData); err != nil {
@@ -296,9 +299,11 @@ func (v *APIV1) BatchUpdate() http.HandlerFunc {
 			return
 		}
 
-		w.Header().Set("HashSHA256", sign.GetHmacString(body, config.Options.Key))
+		if config.Options.Key != "" {
+			w.Header().Set("HashSHA256", sign.GetHmacString(body, config.Options.Key))
+		}
+
 		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Content-Encoding", "gzip")
 		w.WriteHeader(http.StatusOK)
 		if _, err = w.Write(body); err != nil {
 			logger.Log.Debug("cannot encode json request body", zap.Error(err))

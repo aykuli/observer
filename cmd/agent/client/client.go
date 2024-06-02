@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-resty/resty/v2"
 
+	"github.com/aykuli/observer/internal/agent/config"
 	"github.com/aykuli/observer/internal/models"
 	"github.com/aykuli/observer/internal/sign"
 
@@ -22,15 +23,17 @@ type MetricsClient struct {
 	limit      int
 }
 
-func NewMetricsClint(serverAddr string, memStorage *storage.MemStorage) *MerticsClient {
-	return &MerticsClient{
-		ServerAddr: serverAddr,
+func NewMetricsClient(config config.Config, memStorage *storage.MemStorage) *MetricsClient {
+	return &MetricsClient{
+		ServerAddr: "http://" + config.Address,
 		memStorage: memStorage,
+		signKey:    config.Key,
+		limit:      config.RateLimit,
 	}
 }
 
 // SendMetrics deprecated from iteration 5
-func (m *MerticsClient) SendMetrics(req *resty.Request) {
+func (m *MetricsClient) SendMetrics(req *resty.Request) {
 	metrics := m.memStorage.GetAllMetrics()
 
 	if m.limit <= 0 {
@@ -66,7 +69,7 @@ func (m *MerticsClient) SendMetrics(req *resty.Request) {
 	close(jobs)
 }
 
-func (m *MerticsClient) sendOneMetric(req *resty.Request, metric models.Metric) error {
+func (m *MetricsClient) sendOneMetric(req *resty.Request, metric models.Metric) error {
 	req.SetHeader("Content-Type", "application/json")
 	req.URL = fmt.Sprintf("%s/update/", m.ServerAddr)
 	req.Method = http.MethodPost
@@ -76,7 +79,9 @@ func (m *MerticsClient) sendOneMetric(req *resty.Request, metric models.Metric) 
 		return err
 	}
 
-	req.SetHeader("HashSHA256", sign.GetHmacString(marshalled, m.signKey))
+	if m.signKey != "" {
+		req.SetHeader("HashSHA256", sign.GetHmacString(marshalled, m.signKey))
+	}
 
 	gzipped, err := compressor.Compress(marshalled)
 	if err != nil {
@@ -90,7 +95,7 @@ func (m *MerticsClient) sendOneMetric(req *resty.Request, metric models.Metric) 
 	return nil
 }
 
-func (m *MerticsClient) SendBatchMetrics(req *resty.Request) {
+func (m *MetricsClient) SendBatchMetrics(req *resty.Request) {
 	req.SetHeader("Content-Type", "application/json")
 	req.URL = fmt.Sprintf("%s/updates/", m.ServerAddr)
 	req.Method = http.MethodPost
@@ -106,7 +111,9 @@ func (m *MerticsClient) SendBatchMetrics(req *resty.Request) {
 		return
 	}
 
-	req.SetHeader("HashSHA256", sign.GetHmacString(marshalled, m.signKey))
+	if m.signKey != "" {
+		req.SetHeader("HashSHA256", sign.GetHmacString(marshalled, m.signKey))
+	}
 
 	gzipped, err := compressor.Compress(marshalled)
 	if err != nil {

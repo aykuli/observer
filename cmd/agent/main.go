@@ -36,7 +36,7 @@ func main() {
 	request := restyClient.R()
 
 	memStorage := storage.NewMemStorage()
-	newClient := client.NewMetricsClint("http://"+config.Options.Address, &memStorage)
+	newClient := client.NewMetricsClient(config.Options, &memStorage)
 
 	collectTicker := time.NewTicker(time.Duration(config.Options.PollInterval) * time.Second)
 	sendTicker := time.NewTicker(time.Duration(config.Options.ReportInterval) * time.Second)
@@ -47,7 +47,9 @@ func main() {
 		select {
 		case <-collectTicker.C:
 			memStorage.GarbageStats()
+			memStorage.GetSystemUtilInfo()
 		case <-sendTicker.C:
+			newClient.SendMetrics(request)
 			newClient.SendBatchMetrics(request)
 		}
 	}
