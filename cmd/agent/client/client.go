@@ -73,12 +73,14 @@ func (m *MetricsClient) SendMetrics(req *resty.Request) {
 	if err := <-errs; err != nil {
 		close(jobs)
 		wg.Wait()
+		// if any error happened we won't reset counter
 		return
 	}
 
 	close(jobs)
-	m.memStorage.ResetCounter()
 	wg.Wait()
+	// no err in all goroutines - we can reset counter
+	m.memStorage.ResetCounter()
 }
 
 func (m *MetricsClient) sendOneMetric(req *resty.Request, metric models.Metric) error {
