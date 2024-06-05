@@ -18,7 +18,6 @@ var (
 )
 
 type DBStorage struct {
-	instance *pgxpool.Pool
 }
 
 func NewStorage(dsn string) (*DBStorage, error) {
