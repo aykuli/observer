@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -37,6 +38,7 @@ func main() {
 
 	memStorage := storage.NewMemStorage()
 	newClient := client.NewMetricsClient(config.Options, &memStorage)
+	fmt.Printf("agent config: %+v\n\n", config.Options)
 
 	collectTicker := time.NewTicker(time.Duration(config.Options.PollInterval) * time.Second)
 	sendTicker := time.NewTicker(time.Duration(config.Options.ReportInterval) * time.Second)

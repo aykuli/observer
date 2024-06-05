@@ -99,6 +99,7 @@ func (m *MetricsClient) sendOneMetric(req *resty.Request, metric models.Metric) 
 	if err != nil {
 		return err
 	}
+	fmt.Printf("agent sendOneMetric req.Header.Get(\"HashSHA256\") %v\n", req.Header.Get("HashSHA256"))
 
 	if _, err = req.SetBody(gzipped).Send(); err != nil {
 		return err
