@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 
@@ -22,7 +21,6 @@ func main() {
 	if err != nil {
 		log.Print(err)
 	}
-	fmt.Printf("server config: %+v\n\n", config.Options)
 
 	if err = http.ListenAndServe(config.Options.Address, logger.WithLogging(routers.MetricsRouter(memStorage))); err != nil {
 		log.Fatal(err)

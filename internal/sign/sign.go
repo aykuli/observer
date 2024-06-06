@@ -20,7 +20,7 @@ func GetHmacString(body []byte, key string) string {
 }
 
 func Verify(msg interface{}, key, hashString string) bool {
-	if key == "" {
+	if key == "" || hashString == "" {
 		return true
 	}
 
