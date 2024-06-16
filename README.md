@@ -18,7 +18,7 @@
     metrics store interval in seconds (default 300)
 -k string
     secret key to sign response
--r	restore metrics from file (default true)
+-r restore metrics from file (default true)
 ```
 
 ### Usage of agent
@@ -48,7 +48,7 @@ go build -buildvcs=false -o agent
 
 ## Run
 
-### Using with database
+### Using with database storage
 
 ```shell
 # go to the root of project
@@ -58,8 +58,8 @@ docker compose up -d
 
 cd cmd/server
 
+./server -d='postgresql://localhost/postgres?user=postgres&password=postgres' -i=5
+cd ../agent
 
+./agent -l=2 -r=3
 ```
-
-
-

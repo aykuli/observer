@@ -17,6 +17,12 @@ import (
 	"github.com/aykuli/observer/internal/compressor"
 )
 
+const (
+	RetryCount              = 3
+	RetryMinWaitTimeSeconds = 1
+	RetryMaxWaitTimeSeconds = 5
+)
+
 type MetricsClient struct {
 	ServerAddr string
 	memStorage *storage.MemStorage
@@ -33,13 +39,7 @@ func NewMetricsClient(config config.Config, memStorage *storage.MemStorage) *Met
 	}
 }
 
-const (
-	RetryCount              = 3
-	RetryMinWaitTimeSeconds = 1
-	RetryMaxWaitTimeSeconds = 5
-)
-
-func newRestyClient() *resty.Client {
+func NewRestyClient() *resty.Client {
 	restyClient := resty.New().
 		SetRetryCount(RetryCount).
 		SetRetryWaitTime(RetryMinWaitTimeSeconds).
@@ -55,63 +55,70 @@ func newRestyClient() *resty.Client {
 
 		return nil
 	})
+
 	return restyClient
 }
 
 func (m *MetricsClient) SendMetrics() {
 	metrics := m.memStorage.GetAllMetrics()
 
-	if m.limit <= 0 {
-		for i, mt := range metrics {
-			if err := m.sendOneMetric(mt, i, nil); err != nil {
-				log.Printf("Err sending metric %s with err %+v", mt.ID, err)
-				return
-			}
-		}
-		m.memStorage.ResetCounter()
-		return
-	}
-
 	var wg sync.WaitGroup
-	jobs := make(chan models.Metric, m.limit)
-	errs := make(chan error, 1)
-	fmt.Println("SIZE: ", len(metrics))
-	for i, metric := range metrics {
-		fmt.Println(i, " --- ", metric)
-		jobs <- metric
-		wg.Add(1)
+	// Создаю каналы, в них должны поместиться все метрики и все ошибки в случае, если сервер не работает и лимит равен количеству всех метрик.
+	jobs := make(chan models.Metric, len(metrics))
+	errs := make(chan error, len(metrics))
 
-		mt := <-jobs
-		if err := m.sendOneMetric(mt, i, &wg); err != nil {
-			log.Printf("Err sending metric %s with err %+v", mt.ID, err)
-			errs <- err
-			wg.Done()
-		}
-
-		fmt.Printf("wg: %+v\n", &wg)
+	// Если лимит больше количества метрик, незачем создавать лишние горутины
+	if m.limit > len(metrics) {
+		m.limit = len(metrics)
 	}
-	fmt.Println("all metrics in jobs")
 
-	fmt.Println("close(jobs)")
+	// Сначала создаю слушателей
+	// Создаю лимитированное количество горутин, которые конкурентно слушают канал jobs
+	// инкрементирую вейт группу для каждой горутины
+	for w := 0; w < m.limit; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for metric := range jobs {
+				if err := m.sendOneMetric(metric); err != nil {
+					// Если ошибка, сохраняю в канал ошибок
+					errs <- err
+					log.Printf("Err sending metric %s with err %+v", metric.ID, err)
+					return
+				}
+			}
+		}()
+	}
+
+SEND:
+	for _, metric := range metrics {
+		// Пока закидываю в канал jobs паралельно держу ухо востро, прилетит ли ошибка
+		select {
+		case <-errs:
+			// Если прилетела ошибка, закидывать в канал метрику смысла уже нет, весь бач метрик считаю испорченным
+			break SEND
+		default:
+			// Ну а если все хорошо идёт, ничего не остается, как работать
+			jobs <- metric
+		}
+	}
+
+	//Если мы дошли сюда, значит либо все метрики обработаны, либо пришла ошибка и мы вышли из цикла `range metrics`
 	close(jobs)
-	fmt.Println("wg wait here")
 	wg.Wait()
+	close(errs)
 
 	if err := <-errs; err != nil {
-		fmt.Println("err happened")
 		// if any error happened we won't reset counter
 		return
 	}
+
 	// no err in all goroutines - we can reset counter
 	m.memStorage.ResetCounter()
 }
 
-func (m *MetricsClient) sendOneMetric(metric models.Metric, k int, wg *sync.WaitGroup) error {
-	defer wg.Done()
-
-	fmt.Println(k, "sendOneMetric ", metric.ID)
-	req := newRestyClient().R()
-
+func (m *MetricsClient) sendOneMetric(metric models.Metric) error {
+	req := NewRestyClient().R()
 	req.SetHeader("Content-Type", "application/json")
 	req.URL = fmt.Sprintf("%s/update/", m.ServerAddr)
 	req.Method = http.MethodPost
@@ -133,12 +140,12 @@ func (m *MetricsClient) sendOneMetric(metric models.Metric, k int, wg *sync.Wait
 	if _, err = req.SetBody(gzipped).Send(); err != nil {
 		return err
 	}
-	fmt.Println(k, "finish sendOneMetric ", metric.ID, "\n")
 
 	return nil
 }
 
-func (m *MetricsClient) SendBatchMetrics(req *resty.Request) {
+func (m *MetricsClient) SendBatchMetrics() {
+	req := NewRestyClient().R()
 	req.SetHeader("Content-Type", "application/json")
 	req.URL = fmt.Sprintf("%s/updates/", m.ServerAddr)
 	req.Method = http.MethodPost
