@@ -66,6 +66,8 @@ func (s *Storage) startSaveMetricsTicker(storeInterval int) {
 	}
 }
 
+func (s *Storage) Close() {}
+
 func (s *Storage) Ping(ctx context.Context) error {
 	return nil
 }

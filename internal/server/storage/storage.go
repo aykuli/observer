@@ -139,4 +139,5 @@ type Storage interface {
 	ReadMetric(ctx context.Context, metricName, metricType string) (*models.Metric, error)
 	SaveMetric(ctx context.Context, metric models.Metric) (*models.Metric, error)
 	SaveBatch(ctx context.Context, metrics []models.Metric) ([]models.Metric, error)
+	Close()
 }

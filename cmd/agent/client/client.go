@@ -32,12 +32,38 @@ func NewMetricsClient(config config.Config, memStorage *storage.MemStorage) *Met
 		limit:      config.RateLimit,
 	}
 }
-func (m *MetricsClient) SendMetrics(req *resty.Request) {
+
+const (
+	RetryCount              = 3
+	RetryMinWaitTimeSeconds = 1
+	RetryMaxWaitTimeSeconds = 5
+)
+
+func newRestyClient() *resty.Client {
+	restyClient := resty.New().
+		SetRetryCount(RetryCount).
+		SetRetryWaitTime(RetryMinWaitTimeSeconds).
+		SetRetryMaxWaitTime(RetryMaxWaitTimeSeconds).
+		AddRetryCondition(func(r *resty.Response, err error) bool {
+			isConnRefused := r.StatusCode() == 0
+			isServerDBErr := r.StatusCode() == http.StatusInternalServerError
+			return isConnRefused || isServerDBErr
+		})
+	restyClient.OnBeforeRequest(func(c *resty.Client, r *resty.Request) error {
+		r.SetHeader("Content-Encoding", "gzip")
+		r.SetHeader("Accept-Encoding", "gzip")
+
+		return nil
+	})
+	return restyClient
+}
+
+func (m *MetricsClient) SendMetrics() {
 	metrics := m.memStorage.GetAllMetrics()
 
 	if m.limit <= 0 {
-		for _, mt := range metrics {
-			if err := m.sendOneMetric(req, mt); err != nil {
+		for i, mt := range metrics {
+			if err := m.sendOneMetric(mt, i, nil); err != nil {
 				log.Printf("Err sending metric %s with err %+v", mt.ID, err)
 				return
 			}
@@ -49,41 +75,43 @@ func (m *MetricsClient) SendMetrics(req *resty.Request) {
 	var wg sync.WaitGroup
 	jobs := make(chan models.Metric, m.limit)
 	errs := make(chan error, 1)
-
-	for _, metric := range metrics {
+	fmt.Println("SIZE: ", len(metrics))
+	for i, metric := range metrics {
+		fmt.Println(i, " --- ", metric)
 		jobs <- metric
-	}
-
-	for w := 0; w < m.limit; w++ {
 		wg.Add(1)
-		go func() {
-			for metric := range jobs {
-				if err := m.sendOneMetric(req, metric); err != nil {
-					errs <- err
-					log.Printf("Err sending metric %s with err %+v", metric.ID, err)
 
-					wg.Done()
-				}
-			}
-
+		mt := <-jobs
+		if err := m.sendOneMetric(mt, i, &wg); err != nil {
+			log.Printf("Err sending metric %s with err %+v", mt.ID, err)
+			errs <- err
 			wg.Done()
-		}()
+		}
+
+		fmt.Printf("wg: %+v\n", &wg)
 	}
+	fmt.Println("all metrics in jobs")
+
+	fmt.Println("close(jobs)")
+	close(jobs)
+	fmt.Println("wg wait here")
+	wg.Wait()
 
 	if err := <-errs; err != nil {
-		close(jobs)
-		wg.Wait()
+		fmt.Println("err happened")
 		// if any error happened we won't reset counter
 		return
 	}
-
-	close(jobs)
-	wg.Wait()
 	// no err in all goroutines - we can reset counter
 	m.memStorage.ResetCounter()
 }
 
-func (m *MetricsClient) sendOneMetric(req *resty.Request, metric models.Metric) error {
+func (m *MetricsClient) sendOneMetric(metric models.Metric, k int, wg *sync.WaitGroup) error {
+	defer wg.Done()
+
+	fmt.Println(k, "sendOneMetric ", metric.ID)
+	req := newRestyClient().R()
+
 	req.SetHeader("Content-Type", "application/json")
 	req.URL = fmt.Sprintf("%s/update/", m.ServerAddr)
 	req.Method = http.MethodPost
@@ -105,6 +133,7 @@ func (m *MetricsClient) sendOneMetric(req *resty.Request, metric models.Metric) 
 	if _, err = req.SetBody(gzipped).Send(); err != nil {
 		return err
 	}
+	fmt.Println(k, "finish sendOneMetric ", metric.ID, "\n")
 
 	return nil
 }
