@@ -90,7 +90,8 @@ func (m *MetricsClient) SendMetrics() {
 		}()
 	}
 
-SEND:
+	// Reference https://stackoverflow.com/a/11104510
+LOOP:
 	// Начинаю работу над метриками
 	for _, metric := range metrics {
 		// Пока закидываю в канал jobs паралельно держу ухо востро, прилетит ли ошибка
@@ -98,7 +99,7 @@ SEND:
 		case <-errs:
 			// Если прилетела ошибка, закидывать в канал метрику смысла уже нет, весь бач метрик считаю испорченным
 			// и выхожу их цикла
-			break SEND
+			break LOOP
 		default:
 			// Ну а если все хорошо идёт, ничего не остается, как работать
 			jobs <- metric
