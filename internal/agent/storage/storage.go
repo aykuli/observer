@@ -1,9 +1,13 @@
 package storage
 
 import (
+	"fmt"
 	"math/rand"
 	"runtime"
 	"sync"
+
+	"github.com/shirou/gopsutil/v4/cpu"
+	"github.com/shirou/gopsutil/v4/mem"
 
 	"github.com/aykuli/observer/internal/models"
 )
@@ -58,8 +62,34 @@ func (m *MemStorage) GarbageStats() {
 	m.gaugeMetrics["StackSys"] = float64(memstats.StackSys)
 	m.gaugeMetrics["Sys"] = float64(memstats.Sys)
 	m.gaugeMetrics["TotalAlloc"] = float64(memstats.TotalAlloc)
-	m.gaugeMetrics["TotalAlloc"] = float64(memstats.TotalAlloc)
 	m.gaugeMetrics["RandomValue"] = randFloat(0, 1000000)
+	m.mutex.Unlock()
+}
+
+func (m *MemStorage) GetSystemUtilInfo() {
+	vm, err := mem.VirtualMemory()
+	if err != nil {
+		return
+	}
+	m.mutex.Lock()
+	m.gaugeMetrics["TotalMemory"] = float64(vm.Total)
+	m.gaugeMetrics["FreeMemory"] = float64(vm.Free)
+	m.mutex.Unlock()
+
+	cpuCount, err := cpu.Counts(false)
+	if err != nil {
+		return
+	}
+	vmPercent, err := cpu.Percent(0, true)
+	if err != nil {
+		return
+	}
+
+	m.mutex.Lock()
+	for i := 0; i < cpuCount; i++ {
+		mName := fmt.Sprintf("CPUutilization%d", i)
+		m.gaugeMetrics[mName] = vmPercent[i]
+	}
 	m.mutex.Unlock()
 }
 
