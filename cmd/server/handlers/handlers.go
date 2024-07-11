@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -10,8 +11,10 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aykuli/observer/internal/models"
+	"github.com/aykuli/observer/internal/server/config"
 	"github.com/aykuli/observer/internal/server/logger"
 	"github.com/aykuli/observer/internal/server/storage"
+	"github.com/aykuli/observer/internal/sign"
 )
 
 type APIV1 struct {
@@ -163,16 +166,34 @@ func (v *APIV1) UpdateFromJSON() http.HandlerFunc {
 			return
 		}
 
+		equal := sign.Verify(metric, config.Options.Key, r.Header.Get("HashSHA256"))
+		if !equal {
+			logger.Log.Debug("signs not equal", zap.Error(errors.New("signs not equal")))
+			http.Error(w, "cannot serve this agent", http.StatusBadRequest)
+			return
+		}
+
 		outMetric, err := v.Storage.SaveMetric(r.Context(), metric)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
 
+		byteData, err := json.Marshal(outMetric)
+		if err != nil {
+			logger.Log.Debug("cannot marshal metrics", zap.Error(err))
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		if config.Options.Key != "" {
+			w.Header().Set("HashSHA256", sign.GetHmacString(byteData, config.Options.Key))
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		enc := json.NewEncoder(w)
-		if err := enc.Encode(&outMetric); err != nil {
+
+		if _, err = w.Write(byteData); err != nil {
 			logger.Log.Debug("cannot encode json request body", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		}
@@ -259,18 +280,33 @@ func (v *APIV1) BatchUpdate() http.HandlerFunc {
 			return
 		}
 
+		equal := sign.Verify(metrics, config.Options.Key, r.Header.Get("HashSHA256"))
+		if !equal {
+			logger.Log.Debug("signs not equal", zap.Error(errors.New("signs not equal")))
+			http.Error(w, "cannot serve this agent", http.StatusBadRequest)
+			return
+		}
+
 		outMetrics, err := v.Storage.SaveBatch(r.Context(), metrics)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Content-Encoding", "gzip")
-		w.WriteHeader(http.StatusOK)
+		body, err := json.Marshal(outMetrics)
+		if err != nil {
+			logger.Log.Debug("cannot marshal metrics", zap.Error(err))
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
-		enc := json.NewEncoder(w)
-		if err := enc.Encode(&outMetrics); err != nil {
+		if config.Options.Key != "" {
+			w.Header().Set("HashSHA256", sign.GetHmacString(body, config.Options.Key))
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if _, err = w.Write(body); err != nil {
 			logger.Log.Debug("cannot encode json request body", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		}
