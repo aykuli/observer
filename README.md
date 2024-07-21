@@ -63,3 +63,33 @@ cd ../agent
 
 ./agent -l=2 -r=3
 ```
+
+## Profiler
+
+### server app folder
+
+```shell
+go tool pprof -http=":9090" -seconds=180 http://localhost:6060/debug/pprof/profile
+
+curl -sK -v http://localhost:6060/debug/pprof/profile > profiles/base.pprof
+
+go tool pprof -http=":9090" -seconds=180 profiles/base.pprof
+```
+
+### agent app folder
+
+```shell
+go tool pprof -http=":9091" -seconds=180 http://localhost:6061/debug/pprof/profile
+
+curl -sK -v http://localhost:6061/debug/pprof/profile > profiles/base.pprof
+
+go tool pprof -http=":9091" -seconds=180 profiles/base.pprof
+```
+
+## Test coverage
+
+In root folder:
+
+```shell
+go test -cover -v ./...
+```

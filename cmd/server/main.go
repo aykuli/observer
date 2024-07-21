@@ -1,3 +1,4 @@
+// Server is the application for storing metrics sent by agent application.
 package main
 
 import (
@@ -24,7 +25,7 @@ func main() {
 	}
 
 	go func() {
-		if err = http.ListenAndServe("localhost:6060", nil); err != nil {
+		if err := http.ListenAndServe("localhost:6060", nil); err != nil {
 			log.Fatal(err)
 		}
 	}()
@@ -34,6 +35,7 @@ func main() {
 	}
 }
 
+// initStorage configures storage type by parameters provided when app was started.
 func initStorage() (storage.Storage, error) {
 	if config.Options.DatabaseDsn != "" {
 		return postgres.NewStorage(config.Options.DatabaseDsn)

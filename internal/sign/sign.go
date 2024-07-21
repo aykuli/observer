@@ -1,3 +1,5 @@
+// Package sign provides methods to get cryptographic hash and verifying string by the key
+// based on  Keyed-Hash Message Authentication Code (HMAC) provided by hmac package.
 package sign
 
 import (
@@ -7,6 +9,7 @@ import (
 	"encoding/json"
 )
 
+// GetHmacString encodes bytes and returns string by provided key
 func GetHmacString(body []byte, key string) string {
 	if key == "" {
 		return ""
@@ -19,6 +22,7 @@ func GetHmacString(body []byte, key string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
+// Verify returns true/false value based on provided key
 func Verify(msg interface{}, key, hashString string) bool {
 	if key == "" || hashString == "" {
 		return true

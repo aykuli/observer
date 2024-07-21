@@ -1,3 +1,4 @@
+// Package handlers provides methods handling endpoints.
 package handlers
 
 import (
@@ -17,6 +18,7 @@ import (
 	"github.com/aykuli/observer/internal/sign"
 )
 
+// APIV1 struct keeps storage struct and provides methods for endpoints routing
 type APIV1 struct {
 	Storage storage.Storage
 }
@@ -310,20 +312,6 @@ func (v *APIV1) BatchUpdate() http.HandlerFunc {
 			logger.Log.Debug("cannot encode json request body", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		}
-	}
-}
-
-func (v *APIV1) NotFound() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		w.WriteHeader(http.StatusNotFound)
-	}
-}
-
-func (v *APIV1) BadRequest() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		w.WriteHeader(http.StatusBadRequest)
 	}
 }
 

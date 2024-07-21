@@ -1,6 +1,9 @@
+// Agent is the application for getting OS metrics periodically
 package main
 
 import (
+	"log"
+	"net/http"
 	_ "net/http/pprof"
 	"time"
 
@@ -17,6 +20,12 @@ func main() {
 	sendTicker := time.NewTicker(time.Duration(config.Options.ReportInterval) * time.Second)
 	defer collectTicker.Stop()
 	defer sendTicker.Stop()
+
+	go func() {
+		if err := http.ListenAndServe("localhost:6061", nil); err != nil {
+			log.Fatal(err)
+		}
+	}()
 
 	for {
 		select {

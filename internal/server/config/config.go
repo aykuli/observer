@@ -1,3 +1,4 @@
+// Package config provides parsing configuration provided on application start.
 package config
 
 type Config struct {
@@ -9,6 +10,7 @@ type Config struct {
 	Key             string `env:"KEY"`
 }
 
+// Configuration default constants
 const (
 	storeIntervalDefault = 300
 	hostDefault          = "localhost"

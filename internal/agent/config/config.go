@@ -1,5 +1,7 @@
+// Package config provides parsing configuration provided on application start.
 package config
 
+// Config struct keeps tags provided from console on application start.
 type Config struct {
 	Address        string `env:"ADDRESS"`
 	ReportInterval int    `env:"REPORT_INTERVAL"`
@@ -8,6 +10,7 @@ type Config struct {
 	RateLimit      int    `env:"RATE_LIMIT"`
 }
 
+// Configuration default constants
 const (
 	reportIntervalDefault = 10
 	pollIntervalDefault   = 10
@@ -21,6 +24,7 @@ var Options = Config{
 	PollInterval:   pollIntervalDefault,
 }
 
+// ServerAddr struct provides server host and port.
 type ServerAddr struct {
 	Host string
 	Port string

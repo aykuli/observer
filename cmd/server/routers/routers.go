@@ -1,3 +1,4 @@
+// Package routers provides metrics handling endpoints with chi package.
 package routers
 
 import (
@@ -9,6 +10,7 @@ import (
 	"github.com/aykuli/observer/internal/server/storage"
 )
 
+// MetricsRouter creates and keeps endpoints routing, middlewares them with logger, gzip functionality and handling Content-Type
 func MetricsRouter(storage storage.Storage) chi.Router {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)

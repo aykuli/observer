@@ -1,3 +1,4 @@
+// Package storage provides methods to garbage and get metrics.
 package storage
 
 import (
@@ -15,12 +16,14 @@ import (
 type gaugeMetrics map[string]float64
 type counterMetrics map[string]int64
 
+// MemStorage struct keeps gauge and counter metrics
 type MemStorage struct {
 	gaugeMetrics   gaugeMetrics
 	counterMetrics counterMetrics
 	mutex          sync.RWMutex
 }
 
+// NewMemStorage returns MemStorage object.
 func NewMemStorage() MemStorage {
 	return MemStorage{
 		gaugeMetrics:   map[string]float64{},
@@ -28,6 +31,7 @@ func NewMemStorage() MemStorage {
 	}
 }
 
+// GarbageStats gets metrics values from runtime process.
 func (m *MemStorage) GarbageStats() {
 	memstats := runtime.MemStats{}
 	runtime.ReadMemStats(&memstats)
@@ -66,6 +70,7 @@ func (m *MemStorage) GarbageStats() {
 	m.mutex.Unlock()
 }
 
+// GetSystemUtilInfo gets virtual memory metrics values.
 func (m *MemStorage) GetSystemUtilInfo() {
 	vm, err := mem.VirtualMemory()
 	if err != nil {
@@ -93,6 +98,7 @@ func (m *MemStorage) GetSystemUtilInfo() {
 	m.mutex.Unlock()
 }
 
+// GetAllMetrics returns array of metrics.
 func (m *MemStorage) GetAllMetrics() []models.Metric {
 	var outMetrics []models.Metric
 
@@ -110,6 +116,8 @@ func (m *MemStorage) GetAllMetrics() []models.Metric {
 	return outMetrics
 }
 
+// ResetCounter sets counter PollCount to zero value as the flag
+// that metrics got from previous circle of grabbing sent to storage server successfully.
 func (m *MemStorage) ResetCounter() {
 	m.mutex.Lock()
 	m.counterMetrics["PollCount"] = 0

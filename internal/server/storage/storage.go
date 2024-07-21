@@ -1,3 +1,4 @@
+// Package storage provides methods to handle metrics.
 package storage
 
 import (
@@ -10,11 +11,14 @@ import (
 
 type GaugeMetrics map[string]float64
 type CounterMetrics map[string]int64
+
+// Metrics struct keeps gauge and counter metrics
 type Metrics struct {
 	Gauge   GaugeMetrics   `json:"gauge_metrics"`
 	Counter CounterMetrics `json:"counter_metrics"`
 }
 
+// MemStorage struct keeps metrics and configuration on metrics handling
 type MemStorage struct {
 	metrics     Metrics
 	mutex       sync.RWMutex
@@ -22,6 +26,7 @@ type MemStorage struct {
 	flushOnSave bool
 }
 
+// NewMemStorage creates MemStorage object based on configuration provided on application start.
 func NewMemStorage(filepath string, flushOnSave bool) MemStorage {
 	return MemStorage{
 		metrics: Metrics{
@@ -34,6 +39,7 @@ func NewMemStorage(filepath string, flushOnSave bool) MemStorage {
 	}
 }
 
+// GetGauge returns gauge metric value.
 func (ms *MemStorage) GetGauge(mName string) (float64, bool) {
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
@@ -41,6 +47,7 @@ func (ms *MemStorage) GetGauge(mName string) (float64, bool) {
 	return val, ok
 }
 
+// GetCounter returns counter metric value.
 func (ms *MemStorage) GetCounter(mName string) (int64, bool) {
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
@@ -48,6 +55,7 @@ func (ms *MemStorage) GetCounter(mName string) (int64, bool) {
 	return val, ok
 }
 
+// SaveGauge saves gauge metric value.
 func (ms *MemStorage) SaveGauge(mName string, value float64) (float64, error) {
 	ms.mutex.Lock()
 	defer ms.mutex.Unlock()
@@ -63,6 +71,7 @@ func (ms *MemStorage) SaveGauge(mName string, value float64) (float64, error) {
 	return ms.metrics.Gauge[mName], nil
 }
 
+// SaveCounter saves counter metric value.
 func (ms *MemStorage) SaveCounter(mName string, delta int64) (int64, error) {
 	ms.mutex.Lock()
 	defer ms.mutex.Unlock()
@@ -77,6 +86,7 @@ func (ms *MemStorage) SaveCounter(mName string, delta int64) (int64, error) {
 	return ms.metrics.Counter[mName], nil
 }
 
+// LoadFromFile reads metrics from file and saves it to the object.
 func (ms *MemStorage) LoadFromFile() error {
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
@@ -119,20 +129,24 @@ func (ms *MemStorage) flushToDisk() error {
 	return nil
 }
 
+// SaveToFile saves metrics from the memory to file.
 func (ms *MemStorage) SaveToFile() error {
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
 	return ms.flushToDisk()
 }
 
+// GetGaugeMetrics returns map only with gauge metrics.
 func (ms *MemStorage) GetGaugeMetrics() GaugeMetrics {
 	return ms.metrics.Gauge
 }
 
+// GetCounterMetrics returns map only with counter metrics.
 func (ms *MemStorage) GetCounterMetrics() CounterMetrics {
 	return ms.metrics.Counter
 }
 
+// Storage interface provides methods need to be provided by the Storage object.
 type Storage interface {
 	Ping(ctx context.Context) error
 	GetMetrics(ctx context.Context) (string, error)
