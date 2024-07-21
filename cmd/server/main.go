@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 
 	"github.com/aykuli/observer/cmd/server/routers"
 	"github.com/aykuli/observer/internal/server/config"
@@ -21,6 +22,12 @@ func main() {
 	if err != nil {
 		log.Print(err)
 	}
+
+	go func() {
+		if err = http.ListenAndServe("localhost:6060", nil); err != nil {
+			log.Fatal(err)
+		}
+	}()
 
 	if err = http.ListenAndServe(config.Options.Address, logger.WithLogging(routers.MetricsRouter(memStorage))); err != nil {
 		log.Fatal(err)

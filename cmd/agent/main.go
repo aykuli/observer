@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "net/http/pprof"
 	"time"
 
 	"github.com/aykuli/observer/cmd/agent/client"
@@ -9,7 +10,6 @@ import (
 )
 
 func main() {
-
 	memStorage := storage.NewMemStorage()
 	newClient := client.NewMetricsClient(config.Options, &memStorage)
 
