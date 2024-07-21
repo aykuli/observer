@@ -8,20 +8,26 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"github.com/aykuli/observer/internal/server/config"
 	"github.com/aykuli/observer/internal/server/storage/local"
 )
 
 func TestLocalStorage(t *testing.T) {
+	logger := zap.NewExample()
+	defer logger.Sync()
+	sugar := *logger.Sugar()
+
 	options := config.Config{
 		StoreInterval:   0,
 		FileStoragePath: "",
 		Restore:         false,
 	}
-	store, err := local.NewStorage(options)
+	store, err := local.NewStorage(options, sugar)
 	require.NoError(t, err)
-	ts := httptest.NewServer(MetricsRouter(store))
+
+	ts := httptest.NewServer(MetricsRouter(store, sugar))
 	defer ts.Close()
 
 	t.Run("init storage should be empty", func(t *testing.T) {
@@ -123,14 +129,18 @@ func TestLocalStorage(t *testing.T) {
 }
 
 func TestUpdateMetricsRouter(t *testing.T) {
+	logger := zap.NewExample()
+	defer logger.Sync()
+	sugar := *logger.Sugar()
+
 	options := config.Config{
 		StoreInterval:   0,
 		FileStoragePath: "",
 		Restore:         false,
 	}
-	store, err := local.NewStorage(options)
+	store, err := local.NewStorage(options, sugar)
 	require.NoError(t, err)
-	ts := httptest.NewServer(MetricsRouter(store))
+	ts := httptest.NewServer(MetricsRouter(store, sugar))
 	defer ts.Close()
 
 	type want struct{ code int }

@@ -2,23 +2,28 @@
 package routers
 
 import (
+	"net/http"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"go.uber.org/zap"
 
 	"github.com/aykuli/observer/cmd/server/handlers"
 	"github.com/aykuli/observer/internal/compressor"
+	"github.com/aykuli/observer/internal/server/logger"
 	"github.com/aykuli/observer/internal/server/storage"
 )
 
 // MetricsRouter creates and keeps endpoints routing, middlewares them with logger, gzip functionality and handling Content-Type
-func MetricsRouter(storage storage.Storage) chi.Router {
+func MetricsRouter(storage storage.Storage, sugarLogger zap.SugaredLogger) chi.Router {
 	r := chi.NewRouter()
-	r.Use(middleware.Logger)
+	r.Use(logger.WithLogging(sugarLogger))
 	r.Use(compressor.GzipMiddleware)
 	r.Use(middleware.AllowContentEncoding("gzip"))
 	r.Use(middleware.AllowContentType("application/json", "text/html", "html/text", "text/plain"))
 
-	v1 := handlers.APIV1{Storage: storage}
+	v1 := handlers.APIV1{Storage: storage, Logger: sugarLogger}
+	docsFs := http.FileServer(http.Dir("docs"))
 
 	r.Route("/", func(r chi.Router) {
 		//Reading endpoints
@@ -36,8 +41,9 @@ func MetricsRouter(storage storage.Storage) chi.Router {
 
 			r.Post("/{metricType}/{metricName}/{metricValue}", v1.Update())
 		})
-
 		r.Post("/updates/", v1.BatchUpdate())
+
+		r.Handle("/swagger/*", http.StripPrefix("/swagger/", docsFs))
 	})
 
 	return r

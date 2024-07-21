@@ -3,7 +3,6 @@ package client
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"sync"
@@ -136,7 +135,7 @@ LOOP:
 func (m *MetricsClient) sendOneMetric(metric models.Metric) error {
 	req := newRestyClient().R()
 	req.SetHeader("Content-Type", "application/json")
-	req.URL = fmt.Sprintf("%s/update/", m.ServerAddr)
+	req.URL = m.ServerAddr + "/update/"
 	req.Method = http.MethodPost
 
 	marshalled, err := json.Marshal(metric)
@@ -164,7 +163,7 @@ func (m *MetricsClient) sendOneMetric(metric models.Metric) error {
 func (m *MetricsClient) SendBatchMetrics() {
 	req := newRestyClient().R()
 	req.SetHeader("Content-Type", "application/json")
-	req.URL = fmt.Sprintf("%s/updates/", m.ServerAddr)
+	req.URL = m.ServerAddr + "/updates/"
 	req.Method = http.MethodPost
 
 	metrics := m.memStorage.GetAllMetrics()

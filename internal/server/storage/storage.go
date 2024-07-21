@@ -9,6 +9,15 @@ import (
 	"github.com/aykuli/observer/internal/models"
 )
 
+// Storage interface provides methods need to be provided by the Storage object.
+type Storage interface {
+	Ping(ctx context.Context) error
+	GetMetrics(ctx context.Context) (string, error)
+	ReadMetric(ctx context.Context, metricName, metricType string) (*models.Metric, error)
+	SaveMetric(ctx context.Context, metric models.Metric) (*models.Metric, error)
+	SaveBatch(ctx context.Context, metrics []models.Metric) ([]models.Metric, error)
+}
+
 type GaugeMetrics map[string]float64
 type CounterMetrics map[string]int64
 
@@ -18,17 +27,17 @@ type Metrics struct {
 	Counter CounterMetrics `json:"counter_metrics"`
 }
 
-// MemStorage struct keeps metrics and configuration on metrics handling
-type MemStorage struct {
+// MetricsMap struct keeps metrics and configuration on metrics handling
+type MetricsMap struct {
 	metrics     Metrics
 	mutex       sync.RWMutex
 	filepath    string
 	flushOnSave bool
 }
 
-// NewMemStorage creates MemStorage object based on configuration provided on application start.
-func NewMemStorage(filepath string, flushOnSave bool) MemStorage {
-	return MemStorage{
+// NewMetricsMap creates MetricsMap object based on configuration provided on application start.
+func NewMetricsMap(filepath string, flushOnSave bool) *MetricsMap {
+	return &MetricsMap{
 		metrics: Metrics{
 			Gauge:   make(map[string]float64),
 			Counter: make(map[string]int64),
@@ -40,7 +49,7 @@ func NewMemStorage(filepath string, flushOnSave bool) MemStorage {
 }
 
 // GetGauge returns gauge metric value.
-func (ms *MemStorage) GetGauge(mName string) (float64, bool) {
+func (ms *MetricsMap) GetGauge(mName string) (float64, bool) {
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
 	val, ok := ms.metrics.Gauge[mName]
@@ -48,7 +57,7 @@ func (ms *MemStorage) GetGauge(mName string) (float64, bool) {
 }
 
 // GetCounter returns counter metric value.
-func (ms *MemStorage) GetCounter(mName string) (int64, bool) {
+func (ms *MetricsMap) GetCounter(mName string) (int64, bool) {
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
 	val, ok := ms.metrics.Counter[mName]
@@ -56,7 +65,7 @@ func (ms *MemStorage) GetCounter(mName string) (int64, bool) {
 }
 
 // SaveGauge saves gauge metric value.
-func (ms *MemStorage) SaveGauge(mName string, value float64) (float64, error) {
+func (ms *MetricsMap) SaveGauge(mName string, value float64) (float64, error) {
 	ms.mutex.Lock()
 	defer ms.mutex.Unlock()
 
@@ -72,7 +81,7 @@ func (ms *MemStorage) SaveGauge(mName string, value float64) (float64, error) {
 }
 
 // SaveCounter saves counter metric value.
-func (ms *MemStorage) SaveCounter(mName string, delta int64) (int64, error) {
+func (ms *MetricsMap) SaveCounter(mName string, delta int64) (int64, error) {
 	ms.mutex.Lock()
 	defer ms.mutex.Unlock()
 	ms.metrics.Counter[mName] += delta
@@ -87,7 +96,7 @@ func (ms *MemStorage) SaveCounter(mName string, delta int64) (int64, error) {
 }
 
 // LoadFromFile reads metrics from file and saves it to the object.
-func (ms *MemStorage) LoadFromFile() error {
+func (ms *MetricsMap) LoadFromFile() error {
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
 
@@ -113,7 +122,7 @@ func (ms *MemStorage) LoadFromFile() error {
 	return nil
 }
 
-func (ms *MemStorage) flushToDisk() error {
+func (ms *MetricsMap) flushToDisk() error {
 	producer, err := NewProducer(ms.filepath)
 	if err != nil {
 		return err
@@ -130,27 +139,18 @@ func (ms *MemStorage) flushToDisk() error {
 }
 
 // SaveToFile saves metrics from the memory to file.
-func (ms *MemStorage) SaveToFile() error {
+func (ms *MetricsMap) SaveToFile() error {
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
 	return ms.flushToDisk()
 }
 
 // GetGaugeMetrics returns map only with gauge metrics.
-func (ms *MemStorage) GetGaugeMetrics() GaugeMetrics {
+func (ms *MetricsMap) GetGaugeMetrics() GaugeMetrics {
 	return ms.metrics.Gauge
 }
 
 // GetCounterMetrics returns map only with counter metrics.
-func (ms *MemStorage) GetCounterMetrics() CounterMetrics {
+func (ms *MetricsMap) GetCounterMetrics() CounterMetrics {
 	return ms.metrics.Counter
-}
-
-// Storage interface provides methods need to be provided by the Storage object.
-type Storage interface {
-	Ping(ctx context.Context) error
-	GetMetrics(ctx context.Context) (string, error)
-	ReadMetric(ctx context.Context, metricName, metricType string) (*models.Metric, error)
-	SaveMetric(ctx context.Context, metric models.Metric) (*models.Metric, error)
-	SaveBatch(ctx context.Context, metrics []models.Metric) ([]models.Metric, error)
 }

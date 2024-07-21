@@ -1,0 +1,254 @@
+?   	github.com/aykuli/observer/cmd/agent	[no test files]
+flag provided but not defined: -test.testlogfile
+Usage of agent:
+  -a string
+    	server address to post metric values (default "localhost:8080")
+  -k string
+    	secret key to sign request
+  -l int
+    	limit sequential requests to server
+  -p int
+    	metric values refreshing interval in second (default 2)
+  -r int
+    	report interval in second to post metric values on server (default 10)
+2024/07/25 23:37:20 flag provided but not defined: -test.testlogfile
+=== RUN   TestSendBatchMetrics
+=== RUN   TestSendBatchMetrics/sends_batch
+=== RUN   TestSendBatchMetrics/sends_by_one
+--- PASS: TestSendBatchMetrics (0.03s)
+    --- PASS: TestSendBatchMetrics/sends_batch (0.00s)
+    --- PASS: TestSendBatchMetrics/sends_by_one (0.03s)
+PASS
+ok  	github.com/aykuli/observer/cmd/agent/client	(cached)
+?   	github.com/aykuli/observer/cmd/server	[no test files]
+flag provided but not defined: -test.testlogfile
+Usage of server:
+  -a string
+    	server address to run on (default "localhost:8080")
+  -d string
+    	database source name
+  -f string
+    	path to save metrics values (default "/tmp/metrics-db.json")
+  -i int
+    	metrics store interval in seconds (default 300)
+  -k string
+    	secret key to sign response
+  -r	restore metrics from file (default true)
+2024/07/26 01:27:33 flag provided but not defined: -test.testlogfile
+=== RUN   ExampleHandlers
+--- PASS: ExampleHandlers (0.00s)
+PASS
+ok  	github.com/aykuli/observer/cmd/server/handlers	(cached)
+?   	github.com/aykuli/observer/cmd/server/swagger	[no test files]
+flag provided but not defined: -test.testlogfile
+Usage of server:
+  -a string
+    	server address to run on (default "localhost:8080")
+  -d string
+    	database source name
+  -f string
+    	path to save metrics values (default "/tmp/metrics-db.json")
+  -i int
+    	metrics store interval in seconds (default 300)
+  -k string
+    	secret key to sign response
+  -r	restore metrics from file (default true)
+2024/07/26 01:29:14 flag provided but not defined: -test.testlogfile
+=== RUN   TestLocalStorage
+=== RUN   TestLocalStorage/init_storage_should_be_empty
+{"level":"info","msg":"GET 200 / size:  0"}
+=== RUN   TestLocalStorage/Update_gauge_metric_value
+{"level":"info","msg":"POST 200 /update/gauge/metric0/0.5 size:  44"}
+=== RUN   TestLocalStorage/Update_counter_metric_value
+{"level":"info","msg":"POST 200 /update/counter/metric1/12 size:  45"}
+=== RUN   TestLocalStorage/Get_gauge_metric_current_value
+{"level":"info","msg":"GET 200 /value/gauge/metric0 size:  3"}
+=== RUN   TestLocalStorage/Get_counter_metric_current_value
+{"level":"info","msg":"GET 200 /value/counter/metric1 size:  2"}
+=== RUN   TestLocalStorage/Get_wrong_metric_type
+{"level":"info","msg":"GET 404 /value/unknown/metric1 size:  52"}
+=== RUN   TestLocalStorage/Get_wrong_counter_metric_current_value
+{"level":"info","msg":"GET 404 /value/counter/metric2 size:  15"}
+=== RUN   TestLocalStorage/Get_all_metrics
+{"level":"info","msg":"GET 200 / size:  30"}
+--- PASS: TestLocalStorage (0.00s)
+    --- PASS: TestLocalStorage/init_storage_should_be_empty (0.00s)
+    --- PASS: TestLocalStorage/Update_gauge_metric_value (0.00s)
+    --- PASS: TestLocalStorage/Update_counter_metric_value (0.00s)
+    --- PASS: TestLocalStorage/Get_gauge_metric_current_value (0.00s)
+    --- PASS: TestLocalStorage/Get_counter_metric_current_value (0.00s)
+    --- PASS: TestLocalStorage/Get_wrong_metric_type (0.00s)
+    --- PASS: TestLocalStorage/Get_wrong_counter_metric_current_value (0.00s)
+    --- PASS: TestLocalStorage/Get_all_metrics (0.00s)
+=== RUN   TestUpdateMetricsRouter
+=== RUN   TestUpdateMetricsRouter/Update_not_allowed_with_GET_method
+{"level":"info","msg":"GET 405 /update/gauge/metric0/5 size:  23"}
+=== RUN   TestUpdateMetricsRouter/Update_gauge_metric_request
+{"level":"info","msg":"POST 200 /update/gauge/metric0/5 size:  66"}
+=== RUN   TestUpdateMetricsRouter/Metric_type_is_wrong
+{"level":"info","msg":"POST 400 /update/random_string/testGauge/5 size:  45"}
+=== RUN   TestUpdateMetricsRouter/Metric_name_is_empty
+{"level":"info","msg":"POST 404 /update/gauge size:  43"}
+=== RUN   TestUpdateMetricsRouter/Gauge_metric_value_is_wrong
+{"level":"info","msg":"POST 400 /update/gauge/metric0/random size:  46"}
+=== RUN   TestUpdateMetricsRouter/Counter_metric_value_is_wrong
+{"level":"info","msg":"POST 400 /update/counter/metric1/56.789 size:  46"}
+=== RUN   TestUpdateMetricsRouter/Gauge_metric_value_is_valid
+{"level":"info","msg":"POST 200 /update/gauge/metric0/56.789 size:  71"}
+=== RUN   TestUpdateMetricsRouter/Counter_metric_value_is_valid
+{"level":"info","msg":"POST 200 /update/counter/metric1/56 size:  69"}
+--- PASS: TestUpdateMetricsRouter (0.00s)
+    --- PASS: TestUpdateMetricsRouter/Update_not_allowed_with_GET_method (0.00s)
+    --- PASS: TestUpdateMetricsRouter/Update_gauge_metric_request (0.00s)
+    --- PASS: TestUpdateMetricsRouter/Metric_type_is_wrong (0.00s)
+    --- PASS: TestUpdateMetricsRouter/Metric_name_is_empty (0.00s)
+    --- PASS: TestUpdateMetricsRouter/Gauge_metric_value_is_wrong (0.00s)
+    --- PASS: TestUpdateMetricsRouter/Counter_metric_value_is_wrong (0.00s)
+    --- PASS: TestUpdateMetricsRouter/Gauge_metric_value_is_valid (0.00s)
+    --- PASS: TestUpdateMetricsRouter/Counter_metric_value_is_valid (0.00s)
+PASS
+ok  	github.com/aykuli/observer/cmd/server/routers	(cached)
+?   	github.com/aykuli/observer/internal/models	[no test files]
+flag provided but not defined: -test.testlogfile
+Usage of agent:
+  -a string
+    	server address to post metric values (default "localhost:8080")
+  -k string
+    	secret key to sign request
+  -l int
+    	limit sequential requests to server
+  -p int
+    	metric values refreshing interval in second (default 2)
+  -r int
+    	report interval in second to post metric values on server (default 10)
+2024/07/25 17:20:19 flag provided but not defined: -test.testlogfile
+=== RUN   ExampleAgentConfig
+--- PASS: ExampleAgentConfig (0.00s)
+PASS
+ok  	github.com/aykuli/observer/internal/agent/config	(cached)
+=== RUN   TestGarbageStats
+=== RUN   TestGarbageStats/Check_stats_collection
+=== RUN   TestGarbageStats/get_system_util_info_values
+--- PASS: TestGarbageStats (0.00s)
+    --- PASS: TestGarbageStats/Check_stats_collection (0.00s)
+    --- PASS: TestGarbageStats/get_system_util_info_values (0.00s)
+PASS
+ok  	github.com/aykuli/observer/internal/agent/storage	(cached)
+=== RUN   TestCompress
+--- PASS: TestCompress (0.00s)
+=== RUN   Example
+--- PASS: Example (0.00s)
+PASS
+ok  	github.com/aykuli/observer/internal/compressor	(cached)
+flag provided but not defined: -test.testlogfile
+Usage of server:
+  -a string
+    	server address to run on (default "localhost:8080")
+  -d string
+    	database source name
+  -f string
+    	path to save metrics values (default "/tmp/metrics-db.json")
+  -i int
+    	metrics store interval in seconds (default 300)
+  -k string
+    	secret key to sign response
+  -r	restore metrics from file (default true)
+2024/07/25 17:20:19 flag provided but not defined: -test.testlogfile
+=== RUN   ExampleServerConfig
+--- PASS: ExampleServerConfig (0.00s)
+PASS
+ok  	github.com/aykuli/observer/internal/server/config	(cached)
+=== RUN   ExampleLogger
+--- PASS: ExampleLogger (0.00s)
+PASS
+ok  	github.com/aykuli/observer/internal/server/logger	0.002s
+flag provided but not defined: -test.testlogfile
+Usage of server:
+  -a string
+    	server address to run on (default "localhost:8080")
+  -d string
+    	database source name
+  -f string
+    	path to save metrics values (default "/tmp/metrics-db.json")
+  -i int
+    	metrics store interval in seconds (default 300)
+  -k string
+    	secret key to sign response
+  -r	restore metrics from file (default true)
+2024/07/25 17:23:44 flag provided but not defined: -test.testlogfile
+=== RUN   TestMetricsRepository
+--- PASS: TestMetricsRepository (0.02s)
+PASS
+ok  	github.com/aykuli/observer/internal/server/repository	(cached)
+flag provided but not defined: -test.testlogfile
+Usage of server:
+  -a string
+    	server address to run on (default "localhost:8080")
+  -d string
+    	database source name
+  -f string
+    	path to save metrics values (default "/tmp/metrics-db.json")
+  -i int
+    	metrics store interval in seconds (default 300)
+  -k string
+    	secret key to sign response
+  -r	restore metrics from file (default true)
+2024/07/25 17:20:19 flag provided but not defined: -test.testlogfile
+=== RUN   TestMemStorage
+--- PASS: TestMemStorage (0.00s)
+PASS
+ok  	github.com/aykuli/observer/internal/server/storage	(cached)
+flag provided but not defined: -test.testlogfile
+Usage of server:
+  -a string
+    	server address to run on (default "localhost:8080")
+  -d string
+    	database source name
+  -f string
+    	path to save metrics values (default "/tmp/metrics-db.json")
+  -i int
+    	metrics store interval in seconds (default 300)
+  -k string
+    	secret key to sign response
+  -r	restore metrics from file (default true)
+2024/07/26 01:27:33 flag provided but not defined: -test.testlogfile
+=== RUN   TestFileStorage
+=== RUN   TestFileStorage/Ping
+=== RUN   TestFileStorage/SaveMetric_gauge_metric
+=== RUN   TestFileStorage/SaveMetric_counter_metric
+=== RUN   TestFileStorage/GetMetrics
+=== RUN   TestFileStorage/SaveBatch
+--- PASS: TestFileStorage (0.00s)
+    --- PASS: TestFileStorage/Ping (0.00s)
+    --- PASS: TestFileStorage/SaveMetric_gauge_metric (0.00s)
+    --- PASS: TestFileStorage/SaveMetric_counter_metric (0.00s)
+    --- PASS: TestFileStorage/GetMetrics (0.00s)
+    --- PASS: TestFileStorage/SaveBatch (0.00s)
+PASS
+ok  	github.com/aykuli/observer/internal/server/storage/local	(cached)
+flag provided but not defined: -test.testlogfile
+Usage of server:
+  -a string
+    	server address to run on (default "localhost:8080")
+  -d string
+    	database source name
+  -f string
+    	path to save metrics values (default "/tmp/metrics-db.json")
+  -i int
+    	metrics store interval in seconds (default 300)
+  -k string
+    	secret key to sign response
+  -r	restore metrics from file (default true)
+2024/07/25 22:40:20 flag provided but not defined: -test.testlogfile
+=== RUN   TestPostgresStorage
+--- PASS: TestPostgresStorage (0.01s)
+PASS
+ok  	github.com/aykuli/observer/internal/server/storage/postgres	(cached)
+=== RUN   TestSign
+=== RUN   TestSign/sign_verify_with_right_key_should_return_true
+=== RUN   TestSign/sign_verify_should_return_false_if_key_was_wrong
+--- PASS: TestSign (0.00s)
+    --- PASS: TestSign/sign_verify_with_right_key_should_return_true (0.00s)
+    --- PASS: TestSign/sign_verify_should_return_false_if_key_was_wrong (0.00s)
+PASS
+ok  	github.com/aykuli/observer/internal/sign	(cached)

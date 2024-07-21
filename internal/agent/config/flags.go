@@ -3,10 +3,9 @@ package config
 import (
 	"flag"
 	"log"
-	"os"
 )
 
-func parseFlags() {
+func parseFlags(args []string) {
 	fs := flag.NewFlagSet("agent", flag.ContinueOnError)
 	fs.StringVar(&Options.Address, "a", hostDefault+":"+portDefault, "server address to post metric values")
 	fs.IntVar(&Options.ReportInterval, "r", 10, "report interval in second to post metric values on server")
@@ -14,7 +13,7 @@ func parseFlags() {
 	fs.StringVar(&Options.Key, "k", "", "secret key to sign request")
 	fs.IntVar(&Options.RateLimit, "l", 0, "limit sequential requests to server")
 
-	err := fs.Parse(os.Args[1:])
+	err := fs.Parse(args)
 	if err != nil {
 		log.Print(err)
 	}

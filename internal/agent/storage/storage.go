@@ -100,16 +100,19 @@ func (m *MemStorage) GetSystemUtilInfo() {
 
 // GetAllMetrics returns array of metrics.
 func (m *MemStorage) GetAllMetrics() []models.Metric {
-	var outMetrics []models.Metric
+	var outMetrics = make([]models.Metric, len(m.gaugeMetrics)+len(m.counterMetrics))
 
+	i := 0
 	m.mutex.RLock()
 	for k := range m.gaugeMetrics {
 		v := m.gaugeMetrics[k]
-		outMetrics = append(outMetrics, models.Metric{ID: k, MType: "gauge", Delta: nil, Value: &v})
+		outMetrics[i] = models.Metric{ID: k, MType: "gauge", Delta: nil, Value: &v}
+		i++
 	}
 	for k := range m.counterMetrics {
 		d := m.counterMetrics[k]
-		outMetrics = append(outMetrics, models.Metric{ID: k, MType: "counter", Delta: &d, Value: nil})
+		outMetrics[i] = models.Metric{ID: k, MType: "counter", Delta: &d, Value: nil}
+		i++
 	}
 	m.mutex.RUnlock()
 

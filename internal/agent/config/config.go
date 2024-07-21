@@ -1,6 +1,8 @@
 // Package config provides parsing configuration provided on application start.
 package config
 
+import "os"
+
 // Config struct keeps tags provided from console on application start.
 type Config struct {
 	Address        string `env:"ADDRESS"`
@@ -31,6 +33,6 @@ type ServerAddr struct {
 }
 
 func init() {
-	parseFlags()
+	parseFlags(os.Args[1:])
 	parseEnvVars()
 }
