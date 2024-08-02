@@ -1,5 +1,7 @@
+// Package models keeps Metric struct.
 package models
 
+// Metric struct provides  json tagged metrics fields
 type Metric struct {
 	ID    string   `json:"id"`
 	MType string   `json:"type"`

@@ -7,11 +7,13 @@ import (
 	"os"
 )
 
+// Producer struct keeps file and writer pointers.
 type Producer struct {
 	file   *os.File
 	writer *bufio.Writer
 }
 
+// NewProducer returns Producer object.
 func NewProducer(filename string) (*Producer, error) {
 	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_APPEND, fs.ModePerm)
 	if err != nil {
@@ -24,6 +26,7 @@ func NewProducer(filename string) (*Producer, error) {
 	}, nil
 }
 
+// WriteMetrics saves provided Metrics.
 func (p *Producer) WriteMetrics(mStore Metrics) error {
 	data, err := json.Marshal(&mStore)
 	if err != nil {
@@ -41,6 +44,7 @@ func (p *Producer) WriteMetrics(mStore Metrics) error {
 	return p.writer.Flush()
 }
 
+// Close closes Producer file.
 func (p *Producer) Close() error {
 	return p.file.Close()
 }

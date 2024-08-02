@@ -1,10 +1,13 @@
+// Package handlers provides methods handling endpoints.
 package handlers
 
 import (
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
@@ -12,13 +15,14 @@ import (
 
 	"github.com/aykuli/observer/internal/models"
 	"github.com/aykuli/observer/internal/server/config"
-	"github.com/aykuli/observer/internal/server/logger"
 	"github.com/aykuli/observer/internal/server/storage"
 	"github.com/aykuli/observer/internal/sign"
 )
 
+// APIV1 struct keeps storage struct and provides methods for endpoints routing
 type APIV1 struct {
 	Storage storage.Storage
+	Logger  zap.SugaredLogger
 }
 
 // Ping godoc
@@ -32,7 +36,7 @@ func (v *APIV1) Ping() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		err := v.Storage.Ping(r.Context())
 		if err != nil {
-			logger.Log.Debug("ping storage error", zap.Error(err))
+			v.Logger.Errorln("ping storage error", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -40,7 +44,7 @@ func (v *APIV1) Ping() http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 		_, err = w.Write([]byte("pong"))
 		if err != nil {
-			logger.Log.Debug("response body writing error", zap.Error(err))
+			v.Logger.Errorln("response body writing error", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 			return
 		}
@@ -76,7 +80,7 @@ func (v *APIV1) GetAllMetrics() http.HandlerFunc {
 // ReadMetric godoc
 //
 //	@Accept			application/json
-//	@Produce		application/json
+//	@Produce		text/plain
 //	@Success		200		{string}	json	"OK"
 //	@Failure		400		{string}	error	"Bad Request"
 //	@Failure		422		{string}	error	"Unprocessable Entity"
@@ -85,9 +89,8 @@ func (v *APIV1) GetAllMetrics() http.HandlerFunc {
 func (v *APIV1) ReadMetric() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var askedMetric models.Metric
-		dec := json.NewDecoder(r.Body)
-		if err := dec.Decode(&askedMetric); err != nil {
-			logger.Log.Debug("cannot decode json request body", zap.Error(err))
+		if err := json.NewDecoder(r.Body).Decode(&askedMetric); err != nil {
+			v.Logger.Errorln("cannot decode json request body", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 			return
 		}
@@ -100,9 +103,8 @@ func (v *APIV1) ReadMetric() http.HandlerFunc {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		enc := json.NewEncoder(w)
-		if err := enc.Encode(&metric); err != nil {
-			logger.Log.Debug("cannot encode json request body", zap.Error(err))
+		if err := json.NewEncoder(w).Encode(&metric); err != nil {
+			v.Logger.Errorln("cannot encode json request body", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		}
 
@@ -113,7 +115,7 @@ func (v *APIV1) ReadMetric() http.HandlerFunc {
 // GetMetric godoc
 //
 //	@Accept			application/json
-//	@Produce		application/json
+//	@Produce		text/plain
 //	@Success		200		{string}	json	"OK"
 //	@Failure		400		{string}	error	"Bad Request"
 //	@Failure		404		{string}	error	"Not Found"
@@ -151,24 +153,22 @@ func (v *APIV1) GetMetric() http.HandlerFunc {
 //
 //	@Accept			application/json
 //	@Produce		application/json
-//	@Success		200		{string}	json	"OK"
-//	@Failure		400		{string}	error	"Bad Request"
-//	@Failure		404		{string}	error	"Not Found"
+//	@Success		200		{object}	models.Metric	"OK"
+//	@Failure		400		{string}	error	        "Bad Request"
+//	@Failure		404		{string}	error	        "Not Found"
 //	@Router			/update [POST]
 func (v *APIV1) UpdateFromJSON() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var metric models.Metric
-		dec := json.NewDecoder(r.Body)
-		err := dec.Decode(&metric)
-		if err != nil {
-			logger.Log.Debug("cannot decode json request body", zap.Error(err))
+		if err := json.NewDecoder(r.Body).Decode(&metric); err != nil {
+			v.Logger.Errorln("cannot decode json request body", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
 		equal := sign.Verify(metric, config.Options.Key, r.Header.Get("HashSHA256"))
 		if !equal {
-			logger.Log.Debug("signs not equal", zap.Error(errors.New("signs not equal")))
+			v.Logger.Errorln("signs not equal", zap.Error(errors.New("signs not equal")))
 			http.Error(w, "cannot serve this agent", http.StatusBadRequest)
 			return
 		}
@@ -181,7 +181,7 @@ func (v *APIV1) UpdateFromJSON() http.HandlerFunc {
 
 		byteData, err := json.Marshal(outMetric)
 		if err != nil {
-			logger.Log.Debug("cannot marshal metrics", zap.Error(err))
+			v.Logger.Errorln("cannot marshal metrics", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -194,7 +194,7 @@ func (v *APIV1) UpdateFromJSON() http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 
 		if _, err = w.Write(byteData); err != nil {
-			logger.Log.Debug("cannot encode json request body", zap.Error(err))
+			v.Logger.Errorln("cannot encode json request body", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		}
 	}
@@ -204,9 +204,9 @@ func (v *APIV1) UpdateFromJSON() http.HandlerFunc {
 //
 //	@Accept			application/json
 //	@Produce		application/json
-//	@Success		200		{string}	json	"OK"
-//	@Failure		400		{string}	error	"Bad Request"
-//	@Failure		404		{string}	error	"Not Found"
+//	@Success		200		{object}	models.Metric	"OK"
+//	@Failure		400		{string}	error	        "Bad Request"
+//	@Failure		404		{string}	error	        "Not Found"
 //	@Router			/update/{metricType}/{metricName}/{metricValue} [POST]
 func (v *APIV1) Update() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -256,7 +256,7 @@ func (v *APIV1) Update() http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 		enc := json.NewEncoder(w)
 		if err := enc.Encode(&outMetric); err != nil {
-			logger.Log.Debug("cannot encode json request body", zap.Error(err))
+			v.Logger.Errorln("cannot encode json request body", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		}
 	}
@@ -266,23 +266,22 @@ func (v *APIV1) Update() http.HandlerFunc {
 //
 //	@Accept			application/json
 //	@Produce		application/json
-//	@Success		200		{string}	json	"OK"
+//	@Success		200		{array}	  models.Metric	"OK"
 //	@Failure		404		{string}	error	"Not Found"
 //	@Failure		404		{string}	error	"Internal Server Error"
 //	@Router			/updates [POST]
 func (v *APIV1) BatchUpdate() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var metrics []models.Metric
-		dec := json.NewDecoder(r.Body)
-		if err := dec.Decode(&metrics); err != nil {
-			logger.Log.Debug("cannot decode json request body", zap.Error(err))
+		if err := json.NewDecoder(r.Body).Decode(&metrics); err != nil {
+			v.Logger.Errorln("cannot decode json request body", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
 		equal := sign.Verify(metrics, config.Options.Key, r.Header.Get("HashSHA256"))
 		if !equal {
-			logger.Log.Debug("signs not equal", zap.Error(errors.New("signs not equal")))
+			v.Logger.Errorln("signs not equal", zap.Error(errors.New("signs not equal")))
 			http.Error(w, "cannot serve this agent", http.StatusBadRequest)
 			return
 		}
@@ -292,10 +291,13 @@ func (v *APIV1) BatchUpdate() http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		slices.SortFunc(outMetrics, func(a, b models.Metric) int {
+			return cmp.Compare(a.ID, b.ID)
+		})
 
 		body, err := json.Marshal(outMetrics)
 		if err != nil {
-			logger.Log.Debug("cannot marshal metrics", zap.Error(err))
+			v.Logger.Errorln("cannot marshal metrics", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -307,23 +309,9 @@ func (v *APIV1) BatchUpdate() http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		if _, err = w.Write(body); err != nil {
-			logger.Log.Debug("cannot encode json request body", zap.Error(err))
+			v.Logger.Errorln("cannot encode json request body", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		}
-	}
-}
-
-func (v *APIV1) NotFound() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		w.WriteHeader(http.StatusNotFound)
-	}
-}
-
-func (v *APIV1) BadRequest() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		w.WriteHeader(http.StatusBadRequest)
 	}
 }
 

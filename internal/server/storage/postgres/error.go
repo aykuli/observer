@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -14,7 +13,7 @@ type postgresError struct {
 }
 
 func (dbErr *postgresError) Error() string {
-	return fmt.Sprintf("[%s] %v", dbErr.name, dbErr.Err.Error())
+	return "[" + dbErr.name + "] " + dbErr.Err.Error()
 }
 
 func newDBError(err error) error {

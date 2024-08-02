@@ -1,8 +1,8 @@
+// Package client provides metrics sending functionality to configured server.
 package client
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"sync"
@@ -17,12 +17,16 @@ import (
 	"github.com/aykuli/observer/internal/compressor"
 )
 
+// Retry configuration constants if server doesn't respond
 const (
-	RetryCount              = 3
-	RetryMinWaitTimeSeconds = 1
-	RetryMaxWaitTimeSeconds = 5
+	RetryCount              = 3 // retry quantity
+	RetryMinWaitTimeSeconds = 1 // default wait time to sleep before retrying request.
+	RetryMaxWaitTimeSeconds = 5 //  max wait time to sleep before retrying request.
 )
 
+// MetricsClient struct is used to metric sender client with settings,
+// like server address string, metrics storage pointer,
+// request sign key and limit of request counts to server.
 type MetricsClient struct {
 	ServerAddr string
 	memStorage *storage.MemStorage
@@ -30,6 +34,7 @@ type MetricsClient struct {
 	limit      int
 }
 
+// NewMetricsClient creates a new client for agent application.
 func NewMetricsClient(config config.Config, memStorage *storage.MemStorage) *MetricsClient {
 	return &MetricsClient{
 		ServerAddr: "http://" + config.Address,
@@ -39,7 +44,8 @@ func NewMetricsClient(config config.Config, memStorage *storage.MemStorage) *Met
 	}
 }
 
-func NewRestyClient() *resty.Client {
+// newRestyClient creates configured resty client for metrics client methods
+func newRestyClient() *resty.Client {
 	restyClient := resty.New().
 		SetRetryCount(RetryCount).
 		SetRetryWaitTime(RetryMinWaitTimeSeconds).
@@ -59,6 +65,8 @@ func NewRestyClient() *resty.Client {
 	return restyClient
 }
 
+// SendMetrics method send metrics one by one. Request quantity might be limited.
+// If not, limit will be the same as quantity of metrics
 func (m *MetricsClient) SendMetrics() {
 	metrics := m.memStorage.GetAllMetrics()
 
@@ -125,9 +133,9 @@ LOOP:
 }
 
 func (m *MetricsClient) sendOneMetric(metric models.Metric) error {
-	req := NewRestyClient().R()
+	req := newRestyClient().R()
 	req.SetHeader("Content-Type", "application/json")
-	req.URL = fmt.Sprintf("%s/update/", m.ServerAddr)
+	req.URL = m.ServerAddr + "/update/"
 	req.Method = http.MethodPost
 
 	marshalled, err := json.Marshal(metric)
@@ -151,10 +159,11 @@ func (m *MetricsClient) sendOneMetric(metric models.Metric) error {
 	return nil
 }
 
+// SendBatchMetrics method send all metrics in one request.
 func (m *MetricsClient) SendBatchMetrics() {
-	req := NewRestyClient().R()
+	req := newRestyClient().R()
 	req.SetHeader("Content-Type", "application/json")
-	req.URL = fmt.Sprintf("%s/updates/", m.ServerAddr)
+	req.URL = m.ServerAddr + "/updates/"
 	req.Method = http.MethodPost
 
 	metrics := m.memStorage.GetAllMetrics()

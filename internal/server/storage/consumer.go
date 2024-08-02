@@ -17,6 +17,7 @@ type Consumer struct {
 
 var ErrNoData = errors.New("no metrics was found")
 
+// NewConsumer creates Consumer object
 func NewConsumer(filename string) (*Consumer, error) {
 	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_APPEND, fs.ModePerm)
 	if err != nil {
@@ -29,6 +30,7 @@ func NewConsumer(filename string) (*Consumer, error) {
 	}, nil
 }
 
+// ReadMetrics returns metrics
 func (c *Consumer) ReadMetrics() (Metrics, error) {
 	c.scanner.Split(scanLastNonEmptyLine)
 	var line string
@@ -51,6 +53,7 @@ func (c *Consumer) ReadMetrics() (Metrics, error) {
 	return mStore, nil
 }
 
+// Close closes file
 func (c *Consumer) Close() error {
 	return c.file.Close()
 }

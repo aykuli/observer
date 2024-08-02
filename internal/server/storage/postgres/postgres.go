@@ -12,17 +12,15 @@ import (
 	"github.com/aykuli/observer/internal/server/repository"
 )
 
-var (
-	instance *pgxpool.Pool
-	pgOnce   sync.Once
-)
+var pgOnce sync.Once
 
 type DBStorage struct {
+	instance *pgxpool.Pool
 }
 
 func NewStorage(dsn string) (*DBStorage, error) {
 	ctx := context.Background()
-	var s *DBStorage
+	var s = DBStorage{}
 	if err := s.createDBPool(ctx, dsn); err != nil {
 		return &DBStorage{}, err
 	}
@@ -30,7 +28,7 @@ func NewStorage(dsn string) (*DBStorage, error) {
 		return &DBStorage{}, err
 	}
 
-	return s, nil
+	return &s, nil
 }
 
 func (s *DBStorage) createDBPool(ctx context.Context, dsn string) error {
@@ -42,7 +40,7 @@ func (s *DBStorage) createDBPool(ctx context.Context, dsn string) error {
 			return
 		}
 
-		instance = pool
+		s.instance = pool
 	})
 
 	if resErr != nil {
@@ -53,7 +51,7 @@ func (s *DBStorage) createDBPool(ctx context.Context, dsn string) error {
 }
 
 func (s *DBStorage) createMetricsTable(ctx context.Context) error {
-	conn, err := instance.Acquire(ctx)
+	conn, err := s.instance.Acquire(ctx)
 	if err != nil {
 		return err
 	}
@@ -68,27 +66,20 @@ func (s *DBStorage) createMetricsTable(ctx context.Context) error {
 }
 
 func (s *DBStorage) Ping(ctx context.Context) error {
-	return instance.Ping(ctx)
+	return s.instance.Ping(ctx)
 }
 
 func (s *DBStorage) GetMetrics(ctx context.Context) (string, error) {
-	conn, err := instance.Acquire(ctx)
+	conn, err := s.instance.Acquire(ctx)
 	if err != nil {
 		return "", newDBError(err)
 	}
 	defer conn.Release()
 
 	metricsRepo := repository.NewMetricsRepository(conn)
-	tx, err := conn.Begin(ctx)
-	if err != nil {
-		return "", newDBError(err)
-	}
 
-	metrics, err := metricsRepo.SelectAllValues(ctx, tx)
+	metrics, err := metricsRepo.SelectAllValues(ctx)
 	if err != nil {
-		if err = tx.Rollback(ctx); err != nil {
-			return "", newDBError(err)
-		}
 		return "", newDBError(err)
 	}
 
@@ -96,8 +87,8 @@ func (s *DBStorage) GetMetrics(ctx context.Context) (string, error) {
 }
 
 func (s *DBStorage) parseMetrics(metrics []models.Metric) string {
-	var pair []string
-	for _, m := range metrics {
+	var pair = make([]string, len(metrics))
+	for i, m := range metrics {
 		var valueStr string
 		switch m.MType {
 		case "gauge":
@@ -105,14 +96,14 @@ func (s *DBStorage) parseMetrics(metrics []models.Metric) string {
 		case "counter":
 			valueStr = fmt.Sprintf("%d", *m.Delta)
 		}
-		pair = append(pair, fmt.Sprintf("\t\t%s: %s", m.ID, valueStr))
+		pair[i] = "   " + m.ID + valueStr
 	}
 
 	return strings.Join(pair, ",\n")
 }
 
 func (s *DBStorage) ReadMetric(ctx context.Context, mName, mType string) (*models.Metric, error) {
-	conn, err := instance.Acquire(ctx)
+	conn, err := s.instance.Acquire(ctx)
 	if err != nil {
 		return nil, newDBError(err)
 	}
@@ -127,7 +118,7 @@ func (s *DBStorage) ReadMetric(ctx context.Context, mName, mType string) (*model
 }
 
 func (s *DBStorage) SaveMetric(ctx context.Context, metric models.Metric) (*models.Metric, error) {
-	conn, err := instance.Acquire(ctx)
+	conn, err := s.instance.Acquire(ctx)
 	if err != nil {
 		return nil, newDBError(err)
 	}
@@ -155,7 +146,7 @@ func (s *DBStorage) SaveMetric(ctx context.Context, metric models.Metric) (*mode
 }
 
 func (s *DBStorage) SaveBatch(ctx context.Context, metrics []models.Metric) ([]models.Metric, error) {
-	conn, err := instance.Acquire(ctx)
+	conn, err := s.instance.Acquire(ctx)
 	if err != nil {
 		return nil, err
 	}

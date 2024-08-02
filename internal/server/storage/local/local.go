@@ -12,17 +12,20 @@ import (
 
 	"github.com/aykuli/observer/internal/models"
 	"github.com/aykuli/observer/internal/server/config"
-	"github.com/aykuli/observer/internal/server/logger"
 	"github.com/aykuli/observer/internal/server/storage"
 )
 
 type Storage struct {
-	memStorage storage.MemStorage
+	memStorage storage.MetricsMap
+	logger     zap.SugaredLogger
 }
 
-func NewStorage(options config.Config) (*Storage, error) {
+func NewStorage(options config.Config, logger zap.SugaredLogger) (*Storage, error) {
 	flushOnSave := options.FileStoragePath != "" && options.StoreInterval == 0
-	s := Storage{memStorage: storage.NewMemStorage(options.FileStoragePath, flushOnSave)}
+	s := Storage{
+		memStorage: *storage.NewMetricsMap(options.FileStoragePath, flushOnSave),
+		logger:     logger,
+	}
 
 	if options.FileStoragePath != "" {
 		err := s.checkFile(options.FileStoragePath)
@@ -60,9 +63,8 @@ func (s *Storage) startSaveMetricsTicker(storeInterval int) {
 	for range collectTicker.C {
 		err := s.memStorage.SaveToFile()
 		if err != nil {
-			logger.Log.Debug("failed metrics saving to local.", zap.Error(err))
+			s.logger.Errorln("failed metrics saving to local.", zap.Error(err))
 		}
-
 	}
 }
 
@@ -71,12 +73,17 @@ func (s *Storage) Ping(ctx context.Context) error {
 }
 
 func (s *Storage) GetMetrics(ctx context.Context) (string, error) {
-	var metrics []string
-	for k, v := range s.memStorage.GetGaugeMetrics() {
-		metrics = append(metrics, fmt.Sprintf("%s: %f", k, v))
+	gaugeMts := s.memStorage.GetGaugeMetrics()
+	counterMts := s.memStorage.GetCounterMetrics()
+	var metrics = make([]string, len(gaugeMts)+len(counterMts))
+	i := 0
+	for k, v := range gaugeMts {
+		metrics[i] = fmt.Sprintf("%s: %f", k, v)
+		i++
 	}
-	for k, d := range s.memStorage.GetCounterMetrics() {
-		metrics = append(metrics, fmt.Sprintf("%s: %d", k, d))
+	for k, d := range counterMts {
+		metrics[i] = fmt.Sprintf("%s: %d", k, d)
+		i++
 	}
 
 	return strings.Join(metrics, ",\n"), nil
@@ -137,10 +144,10 @@ func (s *Storage) SaveMetric(ctx context.Context, metric models.Metric) (*models
 }
 
 func (s *Storage) SaveBatch(ctx context.Context, metrics []models.Metric) ([]models.Metric, error) {
-	var outMetrics []models.Metric
+	var outMetrics = make([]models.Metric, len(metrics))
 	var delta int64
 
-	for _, mt := range metrics {
+	for i, mt := range metrics {
 		outMt := models.Metric{ID: mt.ID, MType: mt.MType}
 		switch mt.MType {
 		case "gauge":
@@ -160,7 +167,7 @@ func (s *Storage) SaveBatch(ctx context.Context, metrics []models.Metric) ([]mod
 			return nil, newFSError("SaveBatch", errors.New("no such metric type"))
 		}
 
-		outMetrics = append(outMetrics, outMt)
+		outMetrics[i] = outMt
 	}
 
 	return outMetrics, nil

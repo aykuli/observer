@@ -1,4 +1,7 @@
+// Package config provides parsing configuration provided on application start.
 package config
+
+import "os"
 
 type Config struct {
 	Address         string `env:"ADDRESS"`
@@ -9,6 +12,7 @@ type Config struct {
 	Key             string `env:"KEY"`
 }
 
+// Configuration default constants
 const (
 	storeIntervalDefault = 300
 	hostDefault          = "localhost"
@@ -25,6 +29,6 @@ var Options = Config{
 }
 
 func init() {
-	parseFlags()
+	parseFlags(os.Args[1:])
 	parseEnvVars()
 }

@@ -1,3 +1,4 @@
+// Package compressor provides middleware for zipping data.
 package compressor
 
 import (
@@ -18,14 +19,17 @@ func newCompressWriter(w http.ResponseWriter) *compressWriter {
 	return &compressWriter{w: w, Zw: gzip.NewWriter(w)}
 }
 
+// Header return writer header as it is.
 func (c *compressWriter) Header() http.Header {
 	return c.w.Header()
 }
 
+// Write write provided bytes with zipping.
 func (c *compressWriter) Write(p []byte) (int, error) {
 	return c.Zw.Write(p)
 }
 
+// WriteHeader sets headers Content-Encoding value to gzip.
 func (c *compressWriter) WriteHeader(statusCode int) {
 	if statusCode < 300 {
 		c.w.Header().Set("Content-Encoding", "gzip")
@@ -51,10 +55,12 @@ func newCompressReader(r io.ReadCloser) (*compressReader, error) {
 	}, nil
 }
 
+// Read provides reading through gzip.Reader.
 func (c *compressReader) Read(p []byte) (n int, err error) {
 	return c.Zr.Read(p)
 }
 
+// Close closes gzip.Reader.
 func (c *compressReader) Close() error {
 	if err := c.r.Close(); err != nil {
 		return err
@@ -62,10 +68,15 @@ func (c *compressReader) Close() error {
 	return c.Zr.Close()
 }
 
+// GzipMiddleware handles Accept-Encoding, Content-Encoding and Content-Type header values.
 func GzipMiddleware(h http.Handler) http.Handler {
 	gzipFn := func(w http.ResponseWriter, r *http.Request) {
-		ow := w
+		if strings.Contains(r.URL.Path, "swag") || strings.Contains(r.URL.Path, "doc") {
+			h.ServeHTTP(w, r)
+			return
+		}
 
+		ow := w
 		acceptEncoding := r.Header.Get("Accept-Encoding")
 		supportsGzip := strings.Contains(acceptEncoding, "gzip")
 		if supportsGzip {
@@ -96,6 +107,7 @@ func GzipMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(gzipFn)
 }
 
+// Compress returns gzipped bytes.
 func Compress(input []byte) ([]byte, error) {
 	var b bytes.Buffer
 	w, err := gzip.NewWriterLevel(&b, gzip.BestCompression)

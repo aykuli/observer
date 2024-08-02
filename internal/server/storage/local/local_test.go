@@ -6,18 +6,23 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"github.com/aykuli/observer/internal/models"
 	"github.com/aykuli/observer/internal/server/config"
 )
 
 func TestFileStorage(t *testing.T) {
+	logger := zap.NewExample()
+	defer logger.Sync()
+	sugar := *logger.Sugar()
+
 	options := config.Config{
 		StoreInterval:   10,
 		FileStoragePath: "1.json",
 		Restore:         false,
 	}
-	store, err := NewStorage(options)
+	store, err := NewStorage(options, sugar)
 	require.NoError(t, err)
 
 	ctx := context.Background()

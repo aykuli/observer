@@ -48,10 +48,10 @@ func (r *MetricsRepository) InitTable(ctx context.Context) error {
 	return nil
 }
 
-func (r *MetricsRepository) SelectAllValues(ctx context.Context, tx pgx.Tx) ([]models.Metric, error) {
+func (r *MetricsRepository) SelectAllValues(ctx context.Context) ([]models.Metric, error) {
 	var metrics []models.Metric
 
-	result, err := tx.Query(ctx, selectAllLastMetricsQuery)
+	result, err := r.conn.Query(ctx, selectAllLastMetricsQuery)
 	if err != nil {
 		return nil, err
 	}
@@ -196,14 +196,14 @@ func (r *MetricsRepository) update(tx pgx.Tx, ctx context.Context, metric models
 }
 
 func (r *MetricsRepository) SaveBatch(ctx context.Context, tx pgx.Tx, metrics []models.Metric) ([]models.Metric, error) {
-	var outMts []models.Metric
+	var outMts = make([]models.Metric, len(metrics))
 
-	for _, mt := range metrics {
+	for i, mt := range metrics {
 		outMt, err := r.Save(ctx, tx, mt)
 		if err != nil {
 			return nil, err
 		}
-		outMts = append(outMts, *outMt)
+		outMts[i] = *outMt
 	}
 	return outMts, nil
 }
