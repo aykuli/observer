@@ -1,3 +1,4 @@
+// Package logger provides logging string on Stdout to requests.
 package logger
 
 import (
@@ -6,16 +7,15 @@ import (
 	"go.uber.org/zap"
 )
 
-type (
-	response struct {
-		statusCode int
-		bodySize   int
-	}
-	loggingResponseWriter struct {
-		http.ResponseWriter
-		response *response
-	}
-)
+type response struct {
+	statusCode int
+	bodySize   int
+}
+
+type loggingResponseWriter struct {
+	http.ResponseWriter
+	response *response
+}
 
 func (lw *loggingResponseWriter) Write(b []byte) (int, error) {
 	size, err := lw.ResponseWriter.Write(b)

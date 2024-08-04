@@ -1,3 +1,4 @@
+// Package postgres provides handler to store metrics in database.
 package postgres
 
 import (

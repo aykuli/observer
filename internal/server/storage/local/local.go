@@ -1,3 +1,4 @@
+// Package local provides handler to save metrics in local file.
 package local
 
 import (

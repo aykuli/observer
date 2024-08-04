@@ -182,7 +182,9 @@ cd cmd/server
 swag init --output ./swagger/
 ```
 
-todods:
+## Analyse code
 
-[ ] swagger
-[ ] secret values
+```shell
+go vet -vettool=/home/a/go/bin/shadow ./...
+```
+
