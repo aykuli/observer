@@ -43,8 +43,8 @@ func main() {
 	}
 
 	go func() {
-		if err := http.ListenAndServe("localhost:6060", nil); err != nil {
-			log.Fatal(err)
+		if er := http.ListenAndServe("localhost:6060", nil); err != nil {
+			log.Fatal(er)
 		}
 	}()
 
