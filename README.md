@@ -40,9 +40,11 @@
 
 ```shell
 cd cmd/server
-go build -buildvcs=false -o server
+go build -buildvcs=false -ldflags "-X main.buildVersion=v1.2 -X 'main.buildDate=$(date +'%Y-%m-%d %H:%M:%S')' -X main.buildCommit=c6c208b" -o server
 
 cd ../agent
+go build -buildvcs=false -ldflags "-X main.buildVersion=v3.4 -X 'main.buildDate=$(date +'%Y-%m-%d %H:%M:%S')' -X main.buildCommit=c6c208b" -o server
+# or
 go build -buildvcs=false -o agent
 ```
 
@@ -62,6 +64,12 @@ cd cmd/server
 cd ../agent
 
 ./agent -l=2 -r=3
+```
+
+## Build binearies with linter flags
+
+```shell
+go run -ldflags "-X main.Version=v1.0.1" main.go
 ```
 
 ## Profiler
