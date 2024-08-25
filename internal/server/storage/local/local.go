@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -86,6 +87,8 @@ func (s *Storage) GetMetrics(ctx context.Context) (string, error) {
 		metrics[i] = fmt.Sprintf("%s: %d", k, d)
 		i++
 	}
+
+	sort.Slice(metrics, func(i, j int) bool { return metrics[i] < metrics[j] })
 
 	return strings.Join(metrics, ",\n"), nil
 }

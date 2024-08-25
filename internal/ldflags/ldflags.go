@@ -1,27 +1,30 @@
 // Package ldflags provide access to ld flags
 package ldflags
 
-import "fmt"
-
-type BuildInfo struct {
+type Info struct {
 	BuildVersion string
 	BuildDate    string
 	BuildCommit  string
 }
 
-// Print prints linter flag on server build
+// BuildInfo prints linter flag on server build
 // @example go build -buildvcs=false -ldflags "-X main.buildVersion=v1.2 -X 'main.buildDate=$(date +'%Y-%m-%d %H:%M:%S')' -X main.buildCommit=c6c208b" -o server
-func Print(bi BuildInfo) {
+func BuildInfo(bi Info) string {
 	res := ""
-	for k, v := range map[string]string{
-		"Build version": bi.BuildVersion,
-		"Build date   ": bi.BuildDate,
-		"Build commit ": bi.BuildCommit} {
-		if v == "" {
-			v = `N\A`
-		}
-		res += k + ": " + v + "\n"
+	if bi.BuildVersion == "" {
+		bi.BuildVersion = `N\A`
 	}
+	res += "Build version: " + bi.BuildVersion + "\n"
 
-	fmt.Println(res)
+	if bi.BuildDate == "" {
+		bi.BuildDate = `N\A`
+	}
+	res += "Build date   : " + bi.BuildDate + "\n"
+
+	if bi.BuildCommit == "" {
+		bi.BuildCommit = `N\A`
+	}
+	res += "Build commit : " + bi.BuildCommit + "\n"
+
+	return res
 }

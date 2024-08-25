@@ -2,6 +2,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -36,11 +37,11 @@ var (
 // @host      localhost:8080
 // @BasePath  /
 func main() {
-	ldflags.Print(ldflags.BuildInfo{
+	fmt.Println(ldflags.BuildInfo(ldflags.Info{
 		BuildVersion: buildVersion,
 		BuildDate:    buildDate,
 		BuildCommit:  buildCommit,
-	})
+	}))
 
 	serverLogger, err := zap.NewProduction()
 	defer func() {
