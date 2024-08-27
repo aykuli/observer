@@ -6,19 +6,10 @@ import (
 	"log"
 	"net/http"
 	_ "net/http/pprof"
-	"os"
 
 	"go.uber.org/zap"
-	"golang.org/x/tools/go/analysis/multichecker"
-	"golang.org/x/tools/go/analysis/passes/atomicalign"
-	"golang.org/x/tools/go/analysis/passes/inspect"
-	"golang.org/x/tools/go/analysis/passes/nilfunc"
-	"golang.org/x/tools/go/analysis/passes/nilness"
-	"golang.org/x/tools/go/analysis/passes/shadow"
-	"golang.org/x/tools/go/analysis/passes/sortslice"
 
 	"github.com/aykuli/observer/cmd/server/routers"
-	"github.com/aykuli/observer/cmd/staticlint/noosexit"
 	"github.com/aykuli/observer/internal/ldflags"
 	"github.com/aykuli/observer/internal/server/config"
 	"github.com/aykuli/observer/internal/server/storage"
@@ -46,16 +37,6 @@ var (
 // @host      localhost:8080
 // @BasePath  /
 func main() {
-	multichecker.Main(
-		shadow.Analyzer,
-		nilfunc.Analyzer,
-		nilness.Analyzer,
-		sortslice.Analyzer,
-		inspect.Analyzer,
-		atomicalign.Analyzer,
-		noosexit.Analyzer,
-	)
-
 	fmt.Println(ldflags.BuildInfo(ldflags.Info{
 		BuildVersion: buildVersion,
 		BuildDate:    buildDate,
@@ -84,8 +65,6 @@ func main() {
 	if err = http.ListenAndServe(config.Options.Address, routers.MetricsRouter(memStorage, sugar)); err != nil {
 		sugar.Fatalw(err.Error(), "event", "start server")
 	}
-
-	os.Exit(0)
 }
 
 // initStorage configures storage type by parameters provided when app was started.

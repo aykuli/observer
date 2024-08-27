@@ -1,30 +1,34 @@
-// Package noosexit defines an Analyzer that checks for not using os.Exit
 package noosexit
 
 import (
-	"fmt"
+	"go/ast"
 
 	"golang.org/x/tools/go/analysis"
-	"golang.org/x/tools/go/analysis/passes/inspect"
 )
 
 const Doc = `check for not using os.Exit call`
 
 var Analyzer = &analysis.Analyzer{
-	Name:     "sortslice",
-	Doc:      Doc,
-	URL:      "https://pkg.go.dev/golang.org/x/tools/go/analysis/passes/sortslice",
-	Requires: []*analysis.Analyzer{inspect.Analyzer},
-	Run:      run,
+	Name: "noosexit0",
+	Doc:  Doc,
+	Run:  run,
 }
 
 func run(pass *analysis.Pass) (interface{}, error) {
-	//inspect := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
-
-	for id, obj := range pass.TypesInfo.Defs {
-		fmt.Println(id)
-		fmt.Println(obj)
+	for _, file := range pass.Files {
+		os_i := 0
+		ast.Inspect(file, func(node ast.Node) bool {
+			switch x := node.(type) {
+			case *ast.Ident:
+				if x.Name == "os" {
+					os_i++
+				}
+				if x.Name == "Exit" && os_i == 1 {
+					pass.Reportf(x.Pos(), "os.Exit not allowed")
+				}
+			}
+			return true
+		})
 	}
-	fmt.Printf("pass: %v\n\n", pass)
 	return nil, nil
 }
