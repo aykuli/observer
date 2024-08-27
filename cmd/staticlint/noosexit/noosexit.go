@@ -16,14 +16,14 @@ var Analyzer = &analysis.Analyzer{
 
 func run(pass *analysis.Pass) (interface{}, error) {
 	for _, file := range pass.Files {
-		os_i := 0
+		i := 0
 		ast.Inspect(file, func(node ast.Node) bool {
 			switch x := node.(type) {
 			case *ast.Ident:
 				if x.Name == "os" {
-					os_i++
+					i++
 				}
-				if x.Name == "Exit" && os_i == 1 {
+				if x.Name == "Exit" && i == 1 {
 					pass.Reportf(x.Pos(), "os.Exit not allowed")
 				}
 			}
