@@ -1,6 +1,9 @@
+// Package noosexit defines an Analyzer that checks if main goroutine
+// in main function doesn't call os.Exit
 package noosexit
 
 import (
+	"fmt"
 	"go/ast"
 
 	"golang.org/x/tools/go/analysis"
@@ -9,7 +12,7 @@ import (
 const Doc = `check for not using os.Exit call`
 
 var Analyzer = &analysis.Analyzer{
-	Name: "noosexit0",
+	Name: "noosexit",
 	Doc:  Doc,
 	Run:  run,
 }
@@ -17,6 +20,11 @@ var Analyzer = &analysis.Analyzer{
 func run(pass *analysis.Pass) (interface{}, error) {
 	for _, file := range pass.Files {
 		i := 0
+		fmt.Println(file.Name)
+		if file.Name.Name != "main" {
+			return nil, nil
+		}
+		//todo need to find out that ast.CallExpr{ is main
 		ast.Inspect(file, func(node ast.Node) bool {
 			switch x := node.(type) {
 			case *ast.Ident:

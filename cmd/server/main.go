@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	_ "net/http/pprof"
+	"os"
 
 	"go.uber.org/zap"
 
@@ -65,6 +66,8 @@ func main() {
 	if err = http.ListenAndServe(config.Options.Address, routers.MetricsRouter(memStorage, sugar)); err != nil {
 		sugar.Fatalw(err.Error(), "event", "start server")
 	}
+
+	os.Exit(0)
 }
 
 // initStorage configures storage type by parameters provided when app was started.

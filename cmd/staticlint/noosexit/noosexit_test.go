@@ -7,5 +7,5 @@ import (
 )
 
 func TestAnalyzer(t *testing.T) {
-	analysistest.Run(t, analysistest.TestData(), Analyzer, "./pkg1")
+	analysistest.Run(t, analysistest.TestData(), Analyzer, "./...")
 }
