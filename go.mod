@@ -1,6 +1,6 @@
 module github.com/aykuli/observer
 
-go 1.21.6
+go 1.22.1
 
 require (
 	github.com/caarlos0/env/v6 v6.10.1
