@@ -3,7 +3,6 @@
 package noosexit
 
 import (
-	"fmt"
 	"go/ast"
 
 	"golang.org/x/tools/go/analysis"
@@ -19,24 +18,42 @@ var Analyzer = &analysis.Analyzer{
 
 func run(pass *analysis.Pass) (interface{}, error) {
 	for _, file := range pass.Files {
-		i := 0
-		fmt.Println(file.Name)
 		if file.Name.Name != "main" {
 			return nil, nil
 		}
-		//todo need to find out that ast.CallExpr{ is main
-		ast.Inspect(file, func(node ast.Node) bool {
-			switch x := node.(type) {
-			case *ast.Ident:
-				if x.Name == "os" {
-					i++
+		warnCount := 0
+		for _, decl := range file.Decls {
+			ast.Inspect(decl, func(node ast.Node) bool {
+				switch y := decl.(type) {
+				case *ast.FuncDecl:
+					if y.Name.Name != "main" {
+						break
+					}
+
+					for _, body := range y.Body.List {
+						switch z := body.(type) {
+						case *ast.ExprStmt:
+							switch a := z.X.(type) {
+							case *ast.CallExpr:
+								switch fun := a.Fun.(type) {
+								case *ast.SelectorExpr:
+									x := fun.X.(*ast.Ident)
+									if fun.Sel.Name == "Exit" && x.Name == "os" && warnCount == 0 {
+										warnCount++
+										pass.Reportf(x.Pos(), "os.Exit doesnt allowed in main function of main package")
+									}
+								}
+							}
+						}
+
+					}
+
+					return true
 				}
-				if x.Name == "Exit" && i == 1 {
-					pass.Reportf(x.Pos(), "os.Exit not allowed")
-				}
-			}
-			return true
-		})
+				return true
+			})
+		}
 	}
+
 	return nil, nil
 }
