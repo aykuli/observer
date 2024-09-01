@@ -1,18 +1,18 @@
+// Package postgres provides handler to store metrics in database.
 package postgres
 
 import (
 	"context"
 	"fmt"
 	"strings"
-	"sync"
+	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/aykuli/observer/internal/models"
 	"github.com/aykuli/observer/internal/server/repository"
 )
-
-var pgOnce sync.Once
 
 type DBStorage struct {
 	instance *pgxpool.Pool
@@ -20,37 +20,44 @@ type DBStorage struct {
 
 func NewStorage(dsn string) (*DBStorage, error) {
 	ctx := context.Background()
-	var s = DBStorage{}
-	if err := s.createDBPool(ctx, dsn); err != nil {
-		return &DBStorage{}, err
+	var s DBStorage
+	tryCount := 0
+	createConn := func() error {
+		word := "try"
+		if tryCount > 0 {
+			word = "retry"
+		}
+		fmt.Printf("%s to connect to database, probe %d\n", word, tryCount)
+		tryCount++
+
+		pool, err := pgxpool.New(ctx, dsn)
+		if err != nil {
+			return fmt.Errorf("could not connect to database: %v", err)
+		}
+
+		err = pool.Ping(ctx)
+		if err != nil {
+			return fmt.Errorf("could not connect to database: %v", err)
+		}
+
+		fmt.Printf("  | -- connected to database %s\n", dsn)
+		s.instance = pool
+
+		return nil
 	}
-	if err := s.createMetricsTable(ctx); err != nil {
-		return &DBStorage{}, err
+	expBackoff := backoff.NewExponentialBackOff()
+	expBackoff.MaxElapsedTime = 12 * time.Second
+	if err := backoff.Retry(createConn, expBackoff); err != nil {
+		return nil, fmt.Errorf("\nfailed to connect to database after retrying %d times: %v", tryCount, err)
+	}
+	if err := s.createMetricsTableIfNotExists(ctx); err != nil {
+		return &s, err
 	}
 
 	return &s, nil
 }
 
-func (s *DBStorage) createDBPool(ctx context.Context, dsn string) error {
-	var resErr error
-	pgOnce.Do(func() {
-		pool, err := pgxpool.New(ctx, dsn)
-		if err != nil {
-			resErr = err
-			return
-		}
-
-		s.instance = pool
-	})
-
-	if resErr != nil {
-		return resErr
-	}
-
-	return nil
-}
-
-func (s *DBStorage) createMetricsTable(ctx context.Context) error {
+func (s *DBStorage) createMetricsTableIfNotExists(ctx context.Context) error {
 	conn, err := s.instance.Acquire(ctx)
 	if err != nil {
 		return err
@@ -63,6 +70,10 @@ func (s *DBStorage) createMetricsTable(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (s *DBStorage) Close() {
+	s.instance.Close()
 }
 
 func (s *DBStorage) Ping(ctx context.Context) error {

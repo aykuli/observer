@@ -31,6 +31,7 @@ func Example() {
 	api := APIV1{Storage: storage}
 
 	// register endpoints
+	r.Get("/ping", api.Ping())
 	r.Get("/", api.GetAllMetrics())
 	r.Post("/update", api.UpdateFromJSON())
 	r.Post("/value", api.ReadMetric())
@@ -49,13 +50,30 @@ func Example() {
 		Value: &valueA,
 	}
 
+	// "/ping" endpoint example
+	res, err := http.Get(testServer.URL + "/ping")
+	if err != nil {
+		fmt.Println("ping error")
+		return
+	}
+	pong, err := io.ReadAll(res.Body)
+	if err != nil {
+		fmt.Println("reading response body error", err.Error())
+		return
+	}
+	if err = res.Body.Close(); err != nil {
+		fmt.Println("res body close error")
+		return
+	}
+	fmt.Println("get /ping :", string(pong))
+
 	// "/update" endpoint example
 	byteData, err := json.Marshal(metric)
 	if err != nil {
 		fmt.Println("metric marshalling error")
 		return
 	}
-	res, err := http.Post(testServer.URL+"/update", "application/json", bytes.NewBuffer(byteData))
+	res, err = http.Post(testServer.URL+"/update", "application/json", bytes.NewBuffer(byteData))
 	if err != nil {
 		fmt.Println("metric post update error")
 		return
@@ -172,6 +190,7 @@ func Example() {
 	fmt.Println("post /updates :", string(out))
 
 	// Output:
+	// get /ping : pong
 	// post /update : {"id":"a_test","type":"gauge","value":5.2}
 	// post /value : {"id":"a_test","type":"gauge","value":5.2}
 	//

@@ -2,6 +2,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -9,10 +10,17 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aykuli/observer/cmd/server/routers"
+	"github.com/aykuli/observer/internal/ldflags"
 	"github.com/aykuli/observer/internal/server/config"
 	"github.com/aykuli/observer/internal/server/storage"
 	"github.com/aykuli/observer/internal/server/storage/local"
 	"github.com/aykuli/observer/internal/server/storage/postgres"
+)
+
+var (
+	buildVersion string
+	buildDate    string
+	buildCommit  string
 )
 
 // @title           Observer server API
@@ -23,12 +31,18 @@ import (
 // @contact.name   Aynur Shauerman
 // @contact.email  aykuli@ya.ru
 
-// @license.name  Apache 2.0
+// @license.name  MIT
 // @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
 
 // @host      localhost:8080
 // @BasePath  /
 func main() {
+	fmt.Println(ldflags.BuildInfo(ldflags.Info{
+		BuildVersion: buildVersion,
+		BuildDate:    buildDate,
+		BuildCommit:  buildCommit,
+	}))
+
 	serverLogger, err := zap.NewProduction()
 	defer func() {
 		if err = serverLogger.Sync(); err != nil {
@@ -43,8 +57,8 @@ func main() {
 	}
 
 	go func() {
-		if err := http.ListenAndServe("localhost:6060", nil); err != nil {
-			log.Fatal(err)
+		if er := http.ListenAndServe("localhost:6060", nil); err != nil {
+			log.Fatal(er)
 		}
 	}()
 

@@ -1,3 +1,4 @@
+// Package repository provides handlers to work with SQL tables.
 package repository
 
 import (
@@ -25,6 +26,7 @@ var (
 	checkMetricExistanceQuery = `SELECT count(*) FROM metrics WHERE name=@name AND type=@type`
 )
 
+// MetricDB type provides struct to work with metric in database rows.
 type MetricDB struct {
 	Name  string
 	Type  string
