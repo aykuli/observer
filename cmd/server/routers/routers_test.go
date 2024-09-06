@@ -17,17 +17,16 @@ import (
 func TestLocalStorage(t *testing.T) {
 	logger := zap.NewExample()
 	defer logger.Sync()
-	sugar := *logger.Sugar()
 
 	options := config.Config{
 		StoreInterval:   0,
 		FileStoragePath: "",
 		Restore:         false,
 	}
-	store, err := local.NewStorage(options, sugar)
+	store, err := local.NewStorage(options, logger)
 	require.NoError(t, err)
 
-	ts := httptest.NewServer(MetricsRouter(store, sugar))
+	ts := httptest.NewServer(MetricsRouter(store, logger, options))
 	defer ts.Close()
 
 	t.Run("init storage should be empty", func(t *testing.T) {
@@ -131,16 +130,15 @@ func TestLocalStorage(t *testing.T) {
 func TestUpdateMetricsRouter(t *testing.T) {
 	logger := zap.NewExample()
 	defer logger.Sync()
-	sugar := *logger.Sugar()
 
 	options := config.Config{
 		StoreInterval:   0,
 		FileStoragePath: "",
 		Restore:         false,
 	}
-	store, err := local.NewStorage(options, sugar)
+	store, err := local.NewStorage(options, logger)
 	require.NoError(t, err)
-	ts := httptest.NewServer(MetricsRouter(store, sugar))
+	ts := httptest.NewServer(MetricsRouter(store, logger, options))
 	defer ts.Close()
 
 	type want struct{ code int }

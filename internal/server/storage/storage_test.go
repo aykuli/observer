@@ -1,16 +1,23 @@
 package storage
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"github.com/aykuli/observer/internal/models"
 	"github.com/aykuli/observer/internal/server/config"
 )
 
 func TestMemStorage(t *testing.T) {
-	metricsMap := NewMetricsMap(config.Options.FileStoragePath, true)
+	logger := zap.NewExample()
+	defer logger.Sync()
+
+	var options config.Config
+	options.Init(logger)
+	metricsMap := NewMetricsMap(options.FileStoragePath, true)
 	require.Empty(t, metricsMap.metrics.Counter)
 	require.Empty(t, metricsMap.metrics.Gauge)
 
@@ -39,4 +46,19 @@ func TestMemStorage(t *testing.T) {
 	outCounter, ok := metricsMap.GetCounter("b_test")
 	require.True(t, ok)
 	require.Equal(t, deltaB, outCounter)
+}
+
+func TestNewProducer(t *testing.T) {
+	fname := "testFile"
+	err := os.WriteFile(fname, []byte(fname), 0644)
+	require.NoError(t, err)
+
+	producer, err := NewProducer(fname)
+	require.NoError(t, err)
+	require.NotNil(t, producer.file)
+	require.NotNil(t, producer.writer)
+
+	err = os.Remove(fname)
+	require.NoError(t, err)
+	require.NoFileExists(t, fname)
 }

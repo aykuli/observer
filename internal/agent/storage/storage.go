@@ -32,7 +32,8 @@ func NewMemStorage() MemStorage {
 }
 
 // GarbageStats gets metrics values from runtime process.
-func (m *MemStorage) GarbageStats() {
+func (m *MemStorage) GarbageStats(wg *sync.WaitGroup) {
+	wg.Add(1)
 	memstats := runtime.MemStats{}
 	runtime.ReadMemStats(&memstats)
 
@@ -68,10 +69,12 @@ func (m *MemStorage) GarbageStats() {
 	m.gaugeMetrics["TotalAlloc"] = float64(memstats.TotalAlloc)
 	m.gaugeMetrics["RandomValue"] = randFloat(0, 1000000)
 	m.mutex.Unlock()
+	wg.Done()
 }
 
 // GetSystemUtilInfo gets virtual memory metrics values.
-func (m *MemStorage) GetSystemUtilInfo() {
+func (m *MemStorage) GetSystemUtilInfo(wg *sync.WaitGroup) {
+	wg.Add(1)
 	vm, err := mem.VirtualMemory()
 	if err != nil {
 		return
@@ -96,6 +99,7 @@ func (m *MemStorage) GetSystemUtilInfo() {
 		m.gaugeMetrics[mName] = vmPercent[i]
 	}
 	m.mutex.Unlock()
+	wg.Done()
 }
 
 // GetAllMetrics returns array of metrics.

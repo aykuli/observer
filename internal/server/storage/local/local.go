@@ -19,10 +19,10 @@ import (
 
 type Storage struct {
 	memStorage storage.MetricsMap
-	logger     zap.SugaredLogger
+	logger     *zap.Logger
 }
 
-func NewStorage(options config.Config, logger zap.SugaredLogger) (*Storage, error) {
+func NewStorage(options config.Config, logger *zap.Logger) (*Storage, error) {
 	flushOnSave := options.FileStoragePath != "" && options.StoreInterval == 0
 	s := Storage{
 		memStorage: *storage.NewMetricsMap(options.FileStoragePath, flushOnSave),
@@ -65,7 +65,7 @@ func (s *Storage) startSaveMetricsTicker(storeInterval int) {
 	for range collectTicker.C {
 		err := s.memStorage.SaveToFile()
 		if err != nil {
-			s.logger.Errorln("failed metrics saving to local.", zap.Error(err))
+			s.logger.Error("failed metrics saving to local.", zap.Error(err))
 		}
 	}
 }
@@ -175,4 +175,8 @@ func (s *Storage) SaveBatch(ctx context.Context, metrics []models.Metric) ([]mod
 	}
 
 	return outMetrics, nil
+}
+
+func (s *Storage) Close() error {
+	return s.memStorage.SaveToFile()
 }

@@ -15,14 +15,13 @@ import (
 func TestFileStorage(t *testing.T) {
 	logger := zap.NewExample()
 	defer logger.Sync()
-	sugar := *logger.Sugar()
 
 	options := config.Config{
 		StoreInterval:   10,
 		FileStoragePath: "1.json",
 		Restore:         false,
 	}
-	store, err := NewStorage(options, sugar)
+	store, err := NewStorage(options, logger)
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -46,7 +45,7 @@ func TestFileStorage(t *testing.T) {
 		require.Equal(t, *metric.Value, *mIn.Value)
 		require.FileExists(t, options.FileStoragePath)
 
-		defer os.Remove(options.FileStoragePath)
+		os.Remove(options.FileStoragePath)
 	})
 
 	t.Run("SaveMetric counter metric", func(t *testing.T) {

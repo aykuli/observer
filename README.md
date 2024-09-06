@@ -60,10 +60,10 @@ docker compose up -d
 
 cd cmd/server
 
-./server -d='postgresql://localhost/postgres?user=postgres&password=postgres' -i=5
+./server -d='postgresql://localhost/postgres?user=postgres&password=postgres' -i=5 -crypto-key=/some-place/rsa
 cd ../agent
 
-./agent -l=2 -r=3
+./agent -l=2 -r=3 -crypto-key=/some-place/rsa.pem
 ```
 
 ## Build binearies with linter flags
