@@ -1,35 +1,39 @@
 // Package config provides parsing configuration provided on application start.
 // Configs can be provided through - listed accordingly precedence:
 //
-//	|-- flags
-//	  |-- a               server address to post metric values
-//	  |-- r               report interval in second to post metric values on server
-//	  |-- p               metric values refreshing interval in second
-//	  |-- l               limit sequential requests to server
-//	  |-- k               secret key to sign request
-//	  |-- crypto-key      path to public crypto key
-//	  |-- c               path to config path
-//	  |-- config          path to config path
-//	|-- environment variables
-//	  |-- ADDRESS         server address to post metric values
-//	  |-- REPORT_INTERVAL report interval in second to post metric values on server
-//	  |-- POLL_INTERVAL   metric values refreshing interval in second
-//	  |-- RATE_LIMIT      limit sequential requests to server
-//	  |-- KEY             secret key to sign request
-//	  |-- CRYPTO_KEY      path to public crypto key
-//	  |-- CONFIG          path to config path
-//	|-- config file
-//	  |-- example
-//	      {
-//	        "address": "localhost:8080", // аналог переменной окружения ADDRESS или флага -a
-//	        "report_interval": "1s", // аналог переменной окружения REPORT_INTERVAL или флага -r
-//	        "poll_interval": "1s", // аналог переменной окружения POLL_INTERVAL или флага -p
-//	        "crypto_key": "/path/to/key.pem" // аналог переменной окружения CRYPTO_KEY или флага -crypto-key
-//	      }
+//		|-- flags
+//		  |-- a               server address to post metric values
+//		  |-- r               report interval in second to post metric values on server
+//		  |-- p               metric values refreshing interval in second
+//		  |-- l               limit sequential requests to server
+//		  |-- k               secret key to sign request
+//		  |-- crypto-key      path to public crypto key
+//		  |-- c               path to config path
+//		  |-- config          path to config path
+//		  |-- t               trusted subnet in CIDR notation
+//		|-- environment variables
+//		  |-- ADDRESS         server address to post metric values
+//		  |-- REPORT_INTERVAL report interval in second to post metric values on server
+//		  |-- POLL_INTERVAL   metric values refreshing interval in second
+//		  |-- RATE_LIMIT      limit sequential requests to server
+//		  |-- KEY             secret key to sign request
+//		  |-- CRYPTO_KEY      path to public crypto key
+//		  |-- CONFIG          path to config path
+//		  |-- TRUSTED_SUBNET  trusted subnet in CIDR notation
+//		|-- config file
+//		  |-- example
+//		      {
+//		        "address": "localhost:8080", // аналог переменной окружения ADDRESS или флага -a
+//		        "report_interval": "1s", // аналог переменной окружения REPORT_INTERVAL или флага -r
+//		        "poll_interval": "1s", // аналог переменной окружения POLL_INTERVAL или флага -p
+//		        "crypto_key": "/path/to/key.pem", // аналог переменной окружения CRYPTO_KEY или флага -crypto-key
+//	            "trusted_subnet": "127.0.0.0/31" // IP-адрес хоста агента в строковом представлении бесклассовой адресации (CIDR)
+//		      }
 package config
 
 import (
 	"encoding/json"
+	"net"
 	"os"
 	"time"
 
@@ -47,10 +51,9 @@ type Config struct {
 	Key               string `env:"KEY"`
 	CryptoPrivKeyPath string `env:"CRYPTO_KEY"`
 	ConfigPath        string `env:"CONFIG"`
+	TrustedSubnetCIDR string `env:"TRUSTED_SUBNET"`
+	TrustedIPNet      *net.IPNet
 }
-
-// Options stores Config options for agent
-var Options = Config{Restore: true}
 
 // JSONConfig stores Config options parsed from provided config file
 type JSONConfig struct {
@@ -61,6 +64,7 @@ type JSONConfig struct {
 	DatabaseDsn       string `json:"database_dsn"`
 	Key               string `json:"key"`
 	CryptoPrivKeyPath string `json:"crypto_key"`
+	TrustedSubnetCIDR string `json:"trusted_subnet"`
 }
 
 // Configuration default constants
@@ -89,7 +93,9 @@ func (c *Config) Init(logger *zap.Logger) {
 		logger.Warn("parse env variables error", zap.String("err-msg", err.Error()))
 	}
 
-	c.checkValues()
+	if err := c.checkValues(); err != nil {
+		logger.Warn("server configuration initiation error", zap.String("err-msg", err.Error()))
+	}
 }
 
 // parseConfigFile parses config parameters from provided config file
@@ -133,7 +139,7 @@ func (c *Config) parseConfigFile() error {
 }
 
 // setDefaults sets default values for report interval, poll interval and address if those hasn't set by flags and env vars
-func (c *Config) checkValues() {
+func (c *Config) checkValues() error {
 	if c.StoreInterval <= 0 {
 		c.StoreInterval = storeIntervalDefault
 	}
@@ -143,4 +149,15 @@ func (c *Config) checkValues() {
 	if c.Address == "" {
 		c.Address = hostDefault + ":" + portDefault
 	}
+
+	if c.TrustedSubnetCIDR != "" {
+		_, trustedNet, err := net.ParseCIDR(c.TrustedSubnetCIDR)
+		if err != nil {
+			c.TrustedSubnetCIDR = ""
+			return err
+		}
+		c.TrustedIPNet = trustedNet
+	}
+
+	return nil
 }

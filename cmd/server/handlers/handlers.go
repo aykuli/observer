@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"slices"
 	"strconv"
@@ -26,6 +27,7 @@ type APIV1 struct {
 	Logger            *zap.Logger
 	CryptoPrivKeyPath string
 	Key               string
+	TrustedIPNet      *net.IPNet
 }
 
 // Ping godoc
@@ -162,6 +164,15 @@ func (v *APIV1) GetMetric() http.HandlerFunc {
 //	@Router			/update [POST]
 func (v *APIV1) UpdateFromJSON() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if v.TrustedIPNet != nil {
+			agentIP := r.Header.Get("X-Real-IP")
+
+			if !v.TrustedIPNet.Contains(net.ParseIP(agentIP)) {
+				http.Error(w, "Agent IP didnt allowed", http.StatusForbidden)
+				return
+			}
+		}
+
 		rBody, err := io.ReadAll(r.Body)
 		if err != nil {
 			v.Logger.Error("cannot read request body", zap.Error(err))
@@ -236,6 +247,15 @@ func (v *APIV1) UpdateFromJSON() http.HandlerFunc {
 //	@Router			/update/{metricType}/{metricName}/{metricValue} [POST]
 func (v *APIV1) Update() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if v.TrustedIPNet != nil {
+			agentIP := r.Header.Get("X-Real-IP")
+
+			if !v.TrustedIPNet.Contains(net.ParseIP(agentIP)) {
+				http.Error(w, "Agent IP didnt allowed", http.StatusForbidden)
+				return
+			}
+		}
+
 		metricType := chi.URLParam(r, "metricType")
 		metricName := chi.URLParam(r, "metricName")
 		metricValue := chi.URLParam(r, "metricValue")
@@ -298,6 +318,15 @@ func (v *APIV1) Update() http.HandlerFunc {
 //	@Router			/updates [POST]
 func (v *APIV1) BatchUpdate() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if v.TrustedIPNet != nil {
+			agentIP := r.Header.Get("X-Real-IP")
+
+			if !v.TrustedIPNet.Contains(net.ParseIP(agentIP)) {
+				http.Error(w, "Agent IP didnt allowed", http.StatusForbidden)
+				return
+			}
+		}
+
 		rBody, err := io.ReadAll(r.Body)
 		if err != nil {
 			v.Logger.Error("cannot read request body", zap.Error(err))
