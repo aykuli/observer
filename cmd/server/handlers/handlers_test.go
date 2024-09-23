@@ -3,12 +3,13 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
 	"github.com/aykuli/observer/internal/models"
@@ -16,19 +17,17 @@ import (
 	"github.com/aykuli/observer/internal/server/storage/local"
 )
 
-func Example() {
+func TestHandlers(t *testing.T) {
 	logger := zap.NewExample()
 	defer logger.Sync()
-	sugar := *logger.Sugar()
 
-	options := config.Options
-	options.Restore = false
-	storage, err := local.NewStorage(options, sugar)
-	if err != nil {
-		return
-	}
+	c := config.Config{Restore: true}
+	c.Init(logger)
+	storage, err := local.NewStorage(c, logger)
+	require.NoError(t, err)
+
 	r := chi.NewRouter()
-	api := APIV1{Storage: storage}
+	api := APIV1{Storage: storage, CryptoPrivKeyPath: c.CryptoPrivKeyPath, Key: c.Key}
 
 	// register endpoints
 	r.Get("/ping", api.Ping())
@@ -52,117 +51,65 @@ func Example() {
 
 	// "/ping" endpoint example
 	res, err := http.Get(testServer.URL + "/ping")
-	if err != nil {
-		fmt.Println("ping error")
-		return
-	}
+	require.NoError(t, err)
 	pong, err := io.ReadAll(res.Body)
-	if err != nil {
-		fmt.Println("reading response body error", err.Error())
-		return
-	}
-	if err = res.Body.Close(); err != nil {
-		fmt.Println("res body close error")
-		return
-	}
-	fmt.Println("get /ping :", string(pong))
+	require.NoError(t, err)
+	require.Equal(t, "pong", string(pong))
+	err = res.Body.Close()
+	require.NoError(t, err)
 
 	// "/update" endpoint example
 	byteData, err := json.Marshal(metric)
-	if err != nil {
-		fmt.Println("metric marshalling error")
-		return
-	}
+	require.NoError(t, err)
+
 	res, err = http.Post(testServer.URL+"/update", "application/json", bytes.NewBuffer(byteData))
-	if err != nil {
-		fmt.Println("metric post update error")
-		return
-	}
+	require.NoError(t, err)
 	outMetric, err := io.ReadAll(res.Body)
-	if err != nil {
-		fmt.Println("reading response body error", err.Error())
-		return
-	}
-	if err = res.Body.Close(); err != nil {
-		fmt.Println("res body close error")
-		return
-	}
-	fmt.Println("post /update :", string(outMetric))
+	require.NoError(t, err)
+	require.Equal(t, "{\"id\":\"a_test\",\"type\":\"gauge\",\"value\":5.2}", string(outMetric))
+
+	err = res.Body.Close()
+	require.NoError(t, err)
 
 	// "/value" endpoint example
 	askedMetric := models.Metric{ID: metricID, MType: "gauge"}
 	byteData, err = json.Marshal(askedMetric)
-	if err != nil {
-		fmt.Println("metric marshalling error")
-		return
-	}
+	require.NoError(t, err)
 	res, err = http.Post(testServer.URL+"/value", "application/json", bytes.NewBuffer(byteData))
-	if err != nil {
-		fmt.Println("metric post value error")
-		return
-	}
+	require.NoError(t, err)
 	out, err := io.ReadAll(res.Body)
-	if err != nil {
-		fmt.Println("error decoding metric value")
-		return
-	}
-	if err = res.Body.Close(); err != nil {
-		fmt.Println("res body close error")
-		return
-	}
-	fmt.Println("post /value :", string(out))
+	require.NoError(t, err)
+	err = res.Body.Close()
+	require.NoError(t, err)
+	require.Equal(t, "{\"id\":\"a_test\",\"type\":\"gauge\",\"value\":5.2}\n", string(out))
 
 	// "/update/{metricType}/{metricName}/{metricValue}" endpoint example
 	res, err = http.Post(testServer.URL+"/update/gauge/b_test/1.2", "application/json", bytes.NewBuffer([]byte("")))
-	if err != nil {
-		fmt.Println("error updating metric value")
-		return
-	}
+	require.NoError(t, err)
 
 	out, err = io.ReadAll(res.Body)
-	if err != nil {
-		fmt.Println("error updating metric value")
-		return
-	}
-	if err = res.Body.Close(); err != nil {
-		fmt.Println("res body close error")
-		return
-	}
-	fmt.Println("post /update/gauge/b_test/1.2 :", string(out))
+	require.NoError(t, err)
+	err = res.Body.Close()
+	require.NoError(t, err)
+	require.Equal(t, "{\"id\":\"b_test\",\"type\":\"gauge\",\"value\":1.2}\n", string(out))
 
 	// "/value/{metricType}/{metricName}" endpoint example
 	res, err = http.Get(testServer.URL + "/value/gauge/" + metricID)
-	if err != nil {
-		fmt.Println("error getting metric value")
-		return
-	}
+	require.NoError(t, err)
 	out, err = io.ReadAll(res.Body)
-	if err != nil {
-		fmt.Println("error reading metric value")
-		return
-	}
-	if err = res.Body.Close(); err != nil {
-		fmt.Println("res body close error")
-		return
-	}
-	fmt.Println("get value/gauge/test_metric :", string(out))
+	require.NoError(t, err)
+	err = res.Body.Close()
+	require.NoError(t, err)
+	require.Equal(t, "5.2", string(out))
 
 	// "/" endpoint example
 	res, err = http.Get(testServer.URL)
-	if err != nil {
-		fmt.Println("error getting all metrics")
-		return
-	}
+	require.NoError(t, err)
 	out, err = io.ReadAll(res.Body)
-	if err != nil {
-		fmt.Println("error decoding metrics")
-		return
-	}
-	if err = res.Body.Close(); err != nil {
-		fmt.Println("res body close error")
-		return
-	}
-	fmt.Println("get / :", string(out))
+	require.NoError(t, err)
+	err = res.Body.Close()
+	require.NoError(t, err)
+	require.Equal(t, "a_test: 5.200000,\nb_test: 1.200000,\nb_test: 5", string(out))
 
 	// "/updates" endpoint example
 	valueC := 1.3
@@ -172,32 +119,14 @@ func Example() {
 		{ID: "c_test", MType: "gauge", Delta: nil, Value: &valueD},
 	}
 	byteData, err = json.Marshal(metrics)
+	require.NoError(t, err)
 
 	res, err = http.Post(testServer.URL+"/updates", "application/json", bytes.NewBuffer(byteData))
-	if err != nil {
-		fmt.Println("error updating metrics")
-		return
-	}
-	out, err = io.ReadAll(res.Body)
-	if err != nil {
-		fmt.Println("error updating metrics")
-		return
-	}
-	if err = res.Body.Close(); err != nil {
-		fmt.Println("res body close error")
-		return
-	}
-	fmt.Println("post /updates :", string(out))
+	require.NoError(t, err)
 
-	// Output:
-	// get /ping : pong
-	// post /update : {"id":"a_test","type":"gauge","value":5.2}
-	// post /value : {"id":"a_test","type":"gauge","value":5.2}
-	//
-	// post /update/gauge/b_test/1.2 : {"id":"b_test","type":"gauge","value":1.2}
-	//
-	// get value/gauge/test_metric : 5.2
-	// get / : a_test: 5.200000,
-	// b_test: 1.200000
-	// post /updates : [{"id":"c_test","type":"gauge","value":1.3},{"id":"c_test","type":"gauge","value":1.4}]
+	out, err = io.ReadAll(res.Body)
+	require.NoError(t, err)
+	err = res.Body.Close()
+	require.NoError(t, err)
+	require.Equal(t, "[{\"id\":\"c_test\",\"type\":\"gauge\",\"value\":1.3},{\"id\":\"c_test\",\"type\":\"gauge\",\"value\":1.4}]", string(out))
 }

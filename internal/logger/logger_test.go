@@ -13,10 +13,9 @@ import (
 func Example() {
 	logger := zap.NewExample()
 	defer logger.Sync()
-	sugar := *logger.Sugar()
 
 	r := chi.NewRouter()
-	r.Use(WithLogging(sugar))
+	r.Use(WithLogging(logger))
 	r.Get("/test", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		if err := r.Body.Close(); err != nil {
@@ -34,5 +33,5 @@ func Example() {
 	time.Sleep(time.Microsecond)
 	res.Body.Close()
 	// Output:
-	// {"level":"info","msg":"GET 200 /test size:  0"}
+	// {"level":"info","msg":"server","Method":"GET","Status code":200,"URI":"/test","Size":0}
 }

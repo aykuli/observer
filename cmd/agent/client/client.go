@@ -2,14 +2,17 @@
 package client
 
 import (
+	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/go-resty/resty/v2"
+	"go.uber.org/zap"
 
 	"github.com/aykuli/observer/internal/agent/config"
+	"github.com/aykuli/observer/internal/crypto"
 	"github.com/aykuli/observer/internal/models"
 	"github.com/aykuli/observer/internal/sign"
 
@@ -28,19 +31,61 @@ const (
 // like server address string, metrics storage pointer,
 // request sign key and limit of request counts to server.
 type MetricsClient struct {
-	ServerAddr string
-	memStorage *storage.MemStorage
-	signKey    string
-	limit      int
+	ServerAddr       string
+	memStorage       *storage.MemStorage
+	logger           *zap.Logger
+	signKey          string
+	cryptoPubKeyPath string
+	limit            int
+	pollInterval     time.Duration
+	reportInterval   time.Duration
 }
 
 // NewMetricsClient creates a new client for agent application.
-func NewMetricsClient(config config.Config, memStorage *storage.MemStorage) *MetricsClient {
+func NewMetricsClient(config config.Config, memStorage *storage.MemStorage, logger *zap.Logger) *MetricsClient {
 	return &MetricsClient{
-		ServerAddr: "http://" + config.Address,
-		memStorage: memStorage,
-		signKey:    config.Key,
-		limit:      config.RateLimit,
+		ServerAddr:       "http://" + config.Address,
+		memStorage:       memStorage,
+		logger:           logger,
+		signKey:          config.Key,
+		cryptoPubKeyPath: config.CryptoPubKeyPath,
+		limit:            config.RateLimit,
+		pollInterval:     time.Duration(config.PollInterval) * time.Second,
+		reportInterval:   time.Duration(config.ReportInterval) * time.Second,
+	}
+}
+
+func (m *MetricsClient) Start(ctx context.Context, wg *sync.WaitGroup) {
+	pollTimer := time.NewTimer(m.pollInterval)
+	reportTimer := time.NewTimer(m.reportInterval)
+
+	var timerWg sync.WaitGroup
+	for {
+		select {
+		case <-pollTimer.C:
+			m.memStorage.GarbageStats(&timerWg)
+			m.memStorage.GetSystemUtilInfo(&timerWg)
+			pollTimer.Reset(m.pollInterval)
+		case <-reportTimer.C:
+			if m.limit > 0 {
+				m.SendMetrics(ctx, &timerWg)
+			} else {
+				m.SendBatchMetrics(ctx, &timerWg)
+			}
+			reportTimer.Reset(m.reportInterval)
+		case <-ctx.Done():
+			pollTimer.Stop()
+			reportTimer.Stop()
+			timerWg.Wait() // wait until all mutexes for metrics Storage will be unlocked
+
+			m.logger.Info("5 Poll and report timers stopped")
+
+			timerWg.Wait()
+			m.logger.Info("6 Metrics requests finished")
+
+			wg.Done()
+			return
+		}
 	}
 }
 
@@ -67,10 +112,9 @@ func newRestyClient() *resty.Client {
 
 // SendMetrics method send metrics one by one. Request quantity might be limited.
 // If not, limit will be the same as quantity of metrics
-func (m *MetricsClient) SendMetrics() {
+func (m *MetricsClient) SendMetrics(ctx context.Context, wg *sync.WaitGroup) {
 	metrics := m.memStorage.GetAllMetrics()
 
-	var wg sync.WaitGroup
 	// Создаю каналы, в них должны поместиться все метрики и все ошибки в случае, если сервер не работает и лимит равен количеству всех метрик.
 	jobs := make(chan models.Metric, len(metrics))
 	errs := make(chan error, len(metrics))
@@ -89,7 +133,7 @@ func (m *MetricsClient) SendMetrics() {
 			// Как горутина закончила работу, декремент вейт группы
 			defer wg.Done()
 			for metric := range jobs {
-				if err := m.sendOneMetric(metric); err != nil {
+				if err := m.SendOneMetric(ctx, metric); err != nil {
 					// Если ошибка случается, сохраняю в канал ошибок
 					errs <- err
 					return
@@ -132,8 +176,10 @@ LOOP:
 	m.memStorage.ResetCounter()
 }
 
-func (m *MetricsClient) sendOneMetric(metric models.Metric) error {
+// SendOneMetric method send metric
+func (m *MetricsClient) SendOneMetric(ctx context.Context, metric models.Metric) error {
 	req := newRestyClient().R()
+	req.SetContext(ctx)
 	req.SetHeader("Content-Type", "application/json")
 	req.URL = m.ServerAddr + "/update/"
 	req.Method = http.MethodPost
@@ -147,6 +193,20 @@ func (m *MetricsClient) sendOneMetric(metric models.Metric) error {
 		req.SetHeader("HashSHA256", sign.GetHmacString(marshalled, m.signKey))
 	}
 
+	if m.cryptoPubKeyPath != "" {
+		enc, err := crypto.NewEncryptor(m.cryptoPubKeyPath)
+		if err != nil {
+			m.logger.Error("Error encrypting marshalled metrics", zap.Error(err))
+			return err
+		}
+		encrypted, err := enc.Encrypt(marshalled)
+		if err != nil {
+			m.logger.Error("Error encrypting marshalled metrics", zap.Error(err))
+			return err
+		}
+		marshalled = []byte(encrypted)
+	}
+
 	gzipped, err := compressor.Compress(marshalled)
 	if err != nil {
 		return err
@@ -155,13 +215,16 @@ func (m *MetricsClient) sendOneMetric(metric models.Metric) error {
 	if _, err = req.SetBody(gzipped).Send(); err != nil {
 		return err
 	}
+	m.logger.Info("Send one metric success", zap.String("metric name", metric.ID))
 
 	return nil
 }
 
 // SendBatchMetrics method send all metrics in one request.
-func (m *MetricsClient) SendBatchMetrics() {
+func (m *MetricsClient) SendBatchMetrics(ctx context.Context, wg *sync.WaitGroup) {
+	wg.Add(1)
 	req := newRestyClient().R()
+	req.SetContext(ctx)
 	req.SetHeader("Content-Type", "application/json")
 	req.URL = m.ServerAddr + "/updates/"
 	req.Method = http.MethodPost
@@ -173,7 +236,7 @@ func (m *MetricsClient) SendBatchMetrics() {
 
 	marshalled, err := json.Marshal(metrics)
 	if err != nil {
-		log.Printf("Err JSON marshalling metrics with err %+v", err)
+		m.logger.Error("Error JSON marshalling metrics", zap.Error(err))
 		return
 	}
 
@@ -181,15 +244,31 @@ func (m *MetricsClient) SendBatchMetrics() {
 		req.SetHeader("HashSHA256", sign.GetHmacString(marshalled, m.signKey))
 	}
 
+	if m.cryptoPubKeyPath != "" {
+		enc, err := crypto.NewEncryptor(m.cryptoPubKeyPath)
+		if err != nil {
+			m.logger.Error("Error encrypting marshalled metrics", zap.Error(err))
+			return
+		}
+		encrypted, err := enc.Encrypt(marshalled)
+		if err != nil {
+			m.logger.Error("Error encrypting marshalled metrics", zap.Error(err))
+			return
+		}
+		marshalled = []byte(encrypted)
+	}
+
 	gzipped, err := compressor.Compress(marshalled)
 	if err != nil {
-		log.Printf("Err compressing metrics with err %+v", err)
+		m.logger.Error("Error compressing metrics", zap.Error(err))
 		return
 	}
 
 	if _, err := req.SetBody(gzipped).Send(); err != nil {
-		log.Printf("Err sending metrics with err %+v", err)
+		m.logger.Error("Error sending metrics", zap.Error(err))
 	} else {
+		m.logger.Info("Send batch metrics success")
 		m.memStorage.ResetCounter()
 	}
+	wg.Done()
 }

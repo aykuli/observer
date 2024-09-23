@@ -72,8 +72,9 @@ func (s *DBStorage) createMetricsTableIfNotExists(ctx context.Context) error {
 	return nil
 }
 
-func (s *DBStorage) Close() {
+func (s *DBStorage) Close() error {
 	s.instance.Close()
+	return nil
 }
 
 func (s *DBStorage) Ping(ctx context.Context) error {
@@ -107,7 +108,7 @@ func (s *DBStorage) parseMetrics(metrics []models.Metric) string {
 		case "counter":
 			valueStr = fmt.Sprintf("%d", *m.Delta)
 		}
-		pair[i] = "   " + m.ID + valueStr
+		pair[i] = m.ID + ": " + valueStr
 	}
 
 	return strings.Join(pair, ",\n")

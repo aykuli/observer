@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"slices"
 	"strconv"
@@ -13,16 +14,18 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
+	"github.com/aykuli/observer/internal/crypto"
 	"github.com/aykuli/observer/internal/models"
-	"github.com/aykuli/observer/internal/server/config"
 	"github.com/aykuli/observer/internal/server/storage"
 	"github.com/aykuli/observer/internal/sign"
 )
 
 // APIV1 struct keeps storage struct and provides methods for endpoints routing
 type APIV1 struct {
-	Storage storage.Storage
-	Logger  zap.SugaredLogger
+	Storage           storage.Storage
+	Logger            *zap.Logger
+	CryptoPrivKeyPath string
+	Key               string
 }
 
 // Ping godoc
@@ -36,7 +39,7 @@ func (v *APIV1) Ping() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		err := v.Storage.Ping(r.Context())
 		if err != nil {
-			v.Logger.Errorln("ping storage error", zap.Error(err))
+			v.Logger.Error("ping storage error", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -44,7 +47,7 @@ func (v *APIV1) Ping() http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 		_, err = w.Write([]byte("pong"))
 		if err != nil {
-			v.Logger.Errorln("response body writing error", zap.Error(err))
+			v.Logger.Error("response body writing error", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 			return
 		}
@@ -90,7 +93,7 @@ func (v *APIV1) ReadMetric() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var askedMetric models.Metric
 		if err := json.NewDecoder(r.Body).Decode(&askedMetric); err != nil {
-			v.Logger.Errorln("cannot decode json request body", zap.Error(err))
+			v.Logger.Error("cannot decode json request body", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 			return
 		}
@@ -104,7 +107,7 @@ func (v *APIV1) ReadMetric() http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		if err := json.NewEncoder(w).Encode(&metric); err != nil {
-			v.Logger.Errorln("cannot encode json request body", zap.Error(err))
+			v.Logger.Error("cannot encode json request body", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		}
 
@@ -159,16 +162,39 @@ func (v *APIV1) GetMetric() http.HandlerFunc {
 //	@Router			/update [POST]
 func (v *APIV1) UpdateFromJSON() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var metric models.Metric
-		if err := json.NewDecoder(r.Body).Decode(&metric); err != nil {
-			v.Logger.Errorln("cannot decode json request body", zap.Error(err))
+		rBody, err := io.ReadAll(r.Body)
+		if err != nil {
+			v.Logger.Error("cannot read request body", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		equal := sign.Verify(metric, config.Options.Key, r.Header.Get("HashSHA256"))
+		if v.CryptoPrivKeyPath != "" {
+			dec, err := crypto.NewDecryptor(v.CryptoPrivKeyPath)
+			if err != nil {
+				v.Logger.Error("error reading private key", zap.Error(err))
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			decrypted, err := dec.Decrypt(string(rBody))
+			if err != nil {
+				v.Logger.Error("request body decrypting error", zap.Error(err))
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			rBody = []byte(decrypted)
+		}
+
+		var metric models.Metric
+		if err := json.Unmarshal(rBody, &metric); err != nil {
+			v.Logger.Error("cannot decode json request body", zap.Error(err))
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		equal := sign.Verify(metric, v.Key, r.Header.Get("HashSHA256"))
 		if !equal {
-			v.Logger.Errorln("signs not equal", zap.Error(errors.New("signs not equal")))
+			v.Logger.Error("signs not equal", zap.Error(errors.New("signs not equal")))
 			http.Error(w, "cannot serve this agent", http.StatusBadRequest)
 			return
 		}
@@ -181,20 +207,20 @@ func (v *APIV1) UpdateFromJSON() http.HandlerFunc {
 
 		byteData, err := json.Marshal(outMetric)
 		if err != nil {
-			v.Logger.Errorln("cannot marshal metrics", zap.Error(err))
+			v.Logger.Error("cannot marshal metrics", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		if config.Options.Key != "" {
-			w.Header().Set("HashSHA256", sign.GetHmacString(byteData, config.Options.Key))
+		if v.Key != "" {
+			w.Header().Set("HashSHA256", sign.GetHmacString(byteData, v.Key))
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 
 		if _, err = w.Write(byteData); err != nil {
-			v.Logger.Errorln("cannot encode json request body", zap.Error(err))
+			v.Logger.Error("cannot encode json request body", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		}
 	}
@@ -256,7 +282,7 @@ func (v *APIV1) Update() http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 		enc := json.NewEncoder(w)
 		if err := enc.Encode(&outMetric); err != nil {
-			v.Logger.Errorln("cannot encode json request body", zap.Error(err))
+			v.Logger.Error("cannot encode json request body", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		}
 	}
@@ -272,16 +298,39 @@ func (v *APIV1) Update() http.HandlerFunc {
 //	@Router			/updates [POST]
 func (v *APIV1) BatchUpdate() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var metrics []models.Metric
-		if err := json.NewDecoder(r.Body).Decode(&metrics); err != nil {
-			v.Logger.Errorln("cannot decode json request body", zap.Error(err))
+		rBody, err := io.ReadAll(r.Body)
+		if err != nil {
+			v.Logger.Error("cannot read request body", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		equal := sign.Verify(metrics, config.Options.Key, r.Header.Get("HashSHA256"))
+		if v.CryptoPrivKeyPath != "" {
+			dec, err := crypto.NewDecryptor(v.CryptoPrivKeyPath)
+			if err != nil {
+				v.Logger.Error("error reading private key", zap.Error(err))
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			decrypted, err := dec.Decrypt(string(rBody))
+			if err != nil {
+				v.Logger.Error("request body decrypting error", zap.Error(err))
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			rBody = []byte(decrypted)
+		}
+
+		var metrics []models.Metric
+		if err := json.Unmarshal(rBody, &metrics); err != nil {
+			v.Logger.Error("cannot decode json request body", zap.Error(err))
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		equal := sign.Verify(metrics, v.Key, r.Header.Get("HashSHA256"))
 		if !equal {
-			v.Logger.Errorln("signs not equal", zap.Error(errors.New("signs not equal")))
+			v.Logger.Error("signs not equal", zap.Error(errors.New("signs not equal")))
 			http.Error(w, "cannot serve this agent", http.StatusBadRequest)
 			return
 		}
@@ -297,19 +346,19 @@ func (v *APIV1) BatchUpdate() http.HandlerFunc {
 
 		body, err := json.Marshal(outMetrics)
 		if err != nil {
-			v.Logger.Errorln("cannot marshal metrics", zap.Error(err))
+			v.Logger.Error("cannot marshal metrics", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		if config.Options.Key != "" {
-			w.Header().Set("HashSHA256", sign.GetHmacString(body, config.Options.Key))
+		if v.Key != "" {
+			w.Header().Set("HashSHA256", sign.GetHmacString(body, v.Key))
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		if _, err = w.Write(body); err != nil {
-			v.Logger.Errorln("cannot encode json request body", zap.Error(err))
+			v.Logger.Error("cannot encode json request body", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		}
 	}
