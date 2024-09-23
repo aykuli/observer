@@ -195,4 +195,3 @@ swag init --output ./swagger/
 ```shell
 go vet -vettool=/home/a/go/bin/shadow ./...
 ```
-

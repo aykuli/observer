@@ -36,7 +36,6 @@ func TestInit(t *testing.T) {
 
 		var c = Config{ConfigPath: configFName}
 		c.Init(logger)
-
 		require.Equal(t, c.Address, "some-address:1234")
 		require.Equal(t, c.Restore, true)
 		require.Equal(t, c.StoreInterval, 1)

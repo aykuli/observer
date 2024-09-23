@@ -35,7 +35,6 @@ func TestParseConfigFile(t *testing.T) {
 
 		var c = Config{ConfigPath: configFName}
 		c.Init(logger)
-
 		require.Equal(t, c.Address, "testhost:5678")
 		require.Equal(t, c.ReportInterval, 1)
 		require.Equal(t, c.PollInterval, 8)

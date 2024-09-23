@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"github.com/aykuli/observer/internal/models"
 	"github.com/aykuli/observer/internal/server/config"
@@ -18,17 +19,21 @@ var envFolder = "../../../.env"
 
 func TestMetricsRepository(t *testing.T) {
 	ctx := context.Background()
-	dsn := config.Options.DatabaseDsn
-	if dsn == "" {
+	logger := zap.NewExample()
+	defer logger.Sync()
+	var c config.Config
+	c.Init(logger)
+
+	if c.DatabaseDsn == "" {
 		envFile, err := godotenv.Read(envFolder)
 		fmt.Println(envFile)
 		require.NoError(t, err)
-		dsn = envFile["POSTGRES_TEST_DSN"]
+		c.DatabaseDsn = envFile["POSTGRES_TEST_DSN"]
 	}
-	if dsn == "" {
+	if c.DatabaseDsn == "" {
 		return
 	}
-	pool, err := pgxpool.New(ctx, dsn)
+	pool, err := pgxpool.New(ctx, c.DatabaseDsn)
 	require.NoError(t, err)
 
 	conn, err := pool.Acquire(ctx)

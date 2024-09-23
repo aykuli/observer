@@ -4,6 +4,7 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -181,6 +182,7 @@ func (m *MetricsClient) SendOneMetric(ctx context.Context, metric models.Metric)
 	req := newRestyClient().R()
 	req.SetContext(ctx)
 	req.SetHeader("Content-Type", "application/json")
+	req.SetHeader("X-Real-IP", req.URL)
 	req.URL = m.ServerAddr + "/update/"
 	req.Method = http.MethodPost
 
@@ -226,6 +228,9 @@ func (m *MetricsClient) SendBatchMetrics(ctx context.Context, wg *sync.WaitGroup
 	req := newRestyClient().R()
 	req.SetContext(ctx)
 	req.SetHeader("Content-Type", "application/json")
+	fmt.Printf("ctx%+v\n\n", ctx)
+	fmt.Printf("req.URL%+v\n\n", req.URL)
+	req.SetHeader("X-Real-IP", req.URL)
 	req.URL = m.ServerAddr + "/updates/"
 	req.Method = http.MethodPost
 
